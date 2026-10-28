@@ -145,14 +145,14 @@
       <div id="banner" class="banner absolute top-[52px] inset-x-[10px] z-[95] rounded-[22px] bg-white/[0.94] backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,0.18)] px-[14px] py-3 flex gap-3 cursor-pointer">
         <div class="w-[38px] h-[38px] rounded-[10px] bg-brand flex items-center justify-center shrink-0 text-white text-[11px] font-black leading-none text-center">FBT</div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between"><span class="text-[13px] font-bold text-ink">FINE FBT</span><span class="text-[12px] text-sub">지금</span></div>
+          <div class="flex items-center justify-between"><span class="text-[13px] font-bold text-ink">FINE FBT</span><span class="bn-time text-[12px] text-sub">지금</span></div>
           <p id="bannerTitle" class="text-[14px] font-bold text-ink leading-[19px] mt-[1px]"></p>
           <p id="bannerBody" class="text-[13px] text-sub leading-[18px]"></p>
         </div>
       </div>
 
       <!-- Toast -->
-      <div id="toast" class="toast absolute left-1/2 bottom-[120px] z-[96] bg-ink/90 text-white text-[13px] px-4 py-[10px] rounded-full whitespace-nowrap"></div>
+      <div id="toast" class="toast absolute left-1/2 bottom-[120px] z-[96] bg-ink/90 text-white text-[13px] leading-[18px] px-4 py-[10px] rounded-[20px] w-max max-w-[320px] text-center"></div>
 
       <!-- Home indicator -->
       <div class="home-indicator-frame absolute bottom-[8px] left-1/2 -translate-x-1/2 w-[134px] h-[5px] rounded-full bg-black z-[100] pointer-events-none"></div>
@@ -223,6 +223,70 @@ function fmtDot(s) { const d = parseD(s); return `${d.getFullYear()}.${pad(d.get
 function addMin(hm, m) { let [h, mm] = hm.split(':').map(Number); let t = h*60 + mm + Math.round(m); return `${pad(Math.floor(t/60)%24)}:${pad(t%60)}`; }
 function ymLabel(ym) { const [y,m] = ym.split('-'); return `${y}년 ${Number(m)}월`; }
 function rng(seed) { return function() { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------------- i18n (한국어 / English) ----------------
+   화면은 한국어로 작성하고, 영어 선택 시 렌더된 DOM의 한글 텍스트를 사전(I18N)·패턴(I18N_RULES)으로 치환합니다.
+   새 문구를 추가하면 I18N 사전에도 영문을 함께 추가해 주세요. */
+const HANGUL = /[가-힣ㄱ-ㆎ]/;
+const MISSING = new Set();
+let PHRASES = null;
+function trCore(c) {
+  if (!HANGUL.test(c)) return c;
+  if (I18N[c] != null) return I18N[c];
+  for (const [re, fn] of I18N_RULES) { const m = c.match(re); if (m) return fn(...m); }
+  if (!PHRASES) PHRASES = Object.entries(I18N).filter(([k]) => k.length >= 2).sort((a, b) => b[0].length - a[0].length);
+  let out = c;
+  for (const [re, fn] of I18N_INLINE) out = out.replace(re, fn);
+  for (const [k, v] of PHRASES) if (out.includes(k)) out = out.split(k).join(v);
+  if (HANGUL.test(out)) MISSING.add(c);
+  return out;
+}
+function tr(s) {
+  if (S.lang !== 'en' || s == null || !HANGUL.test(s)) return s;
+  const lead = s.match(/^\s*/)[0], trail = s.match(/\s*$/)[0];
+  return lead + trCore(s.trim()) + trail;
+}
+function trTree(root) {
+  if (S.lang !== 'en' || !root) return;
+  if (root.nodeType === 3) { if (!root.parentElement || root.parentElement.closest('script,style,.lang-toggle')) return; const v = tr(root.nodeValue); if (v !== root.nodeValue) root.nodeValue = v; return; }
+  if (root.nodeType !== 1) return;
+  const skip = el => !el || el.closest('script,style,.lang-toggle');
+  if (skip(root)) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => skip(n.parentElement) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  let n; const list = [];
+  while ((n = w.nextNode())) if (HANGUL.test(n.nodeValue)) list.push(n);
+  list.forEach(n => { n.nodeValue = tr(n.nodeValue); });
+  const els = [root, ...root.querySelectorAll('[placeholder],[aria-label],[title],input,textarea')];
+  els.forEach(e => {
+    ['placeholder', 'aria-label', 'title'].forEach(a => { const v = e.getAttribute && e.getAttribute(a); if (v && HANGUL.test(v)) e.setAttribute(a, tr(v)); });
+    if ((e.tagName === 'INPUT' || e.tagName === 'TEXTAREA') && HANGUL.test(e.value) && !e.dataset.typed) e.value = tr(e.value);
+  });
+}
+new MutationObserver(ms => {
+  if (S.lang !== 'en') return;
+  ms.forEach(m => m.type === 'characterData' ? trTree(m.target) : m.addedNodes.forEach(trTree));
+}).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+document.addEventListener('input', e => { if (e.target.matches('input,textarea')) e.target.dataset.typed = '1'; }, true);
+
+function setLang(l) {
+  if (S.lang === l) return;
+  S.lang = l;
+  try { localStorage.setItem('fbt_lang', l); } catch (e) {}
+  try { const u = new URL(location.href); if (l === 'en') u.searchParams.set('lang', 'en'); else u.searchParams.delete('lang'); history.replaceState(null, '', u); } catch (e) {}
+  applyLangMeta();
+  $('sheet').classList.remove('open'); $('sheetDim').classList.remove('open'); $('sheetWrap').classList.add('hidden');
+  render(true);
+  trTree(document.body);
+}
+function applyLangMeta() {
+  document.documentElement.lang = S.lang;
+  document.title = S.lang === 'en' ? 'FINE FBT · Car Logbook Prototype' : 'FINE FBT · 운행일지 프로토타입';
+}
+const L = (ko, en) => S.lang === 'en' ? en : ko;   // 문장 구조가 달라 통째로 바꿔야 하는 문구용
+function LangToggle(size = 'md') {
+  const b = (l, label) => `<button onclick="setLang('${l}')" class="flex-1 ${size === 'sm' ? 'h-[34px] text-[13px]' : 'h-[40px] text-[14px]'} rounded-full font-bold transition-colors ${S.lang === l ? 'bg-ink text-white' : 'text-sub'}" data-lang="${l}">${label}</button>`;
+  return `<div class="lang-toggle flex p-[3px] rounded-full bg-white border border-line ${size === 'sm' ? 'w-[200px]' : 'w-full'}">${b('ko', '한국어')}${b('en', 'English')}</div>`;
+}
 
 /* ---------------- Mock data ---------------- */
 const TODAY = '2026-10-28';
@@ -324,7 +388,7 @@ const userById = id => USERS.find(u => u.id === id);
 /* ---------------- Toast / Banner ---------------- */
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800); }
 function banner(title, body, onTap) {
-  const b = $('banner'); $('bannerTitle').textContent = title; $('bannerBody').textContent = body;
+  const b = $('banner'); $('bannerTitle').textContent = title; $('bannerBody').textContent = body; b.querySelector('.bn-time').textContent = '지금';
   b.onclick = () => { b.classList.remove('show'); onTap && onTap(); };
   b.classList.add('show'); clearTimeout(b._h); b._h = setTimeout(() => b.classList.remove('show'), 2600);
 }
@@ -482,6 +546,8 @@ SCREENS.login = () => `
       <p class="text-[12px] text-sub text-center">데모 계정으로 시작하기</p>
       ${BtnPrimary('일반 사용자로 로그인', "login('user')")}
       ${BtnGhost('관리자로 로그인', "login('admin')")}
+      <!-- 언어 전환 (모바일 전용 · PC는 좌측 패널) -->
+      <div class="demo-inapp flex flex-col items-center gap-2 pt-4">${LangToggle('sm')}</div>
     </div>
   </div>`;
 function login(role) {
@@ -672,6 +738,10 @@ function renderDemoSide() {
   const d = S.drive;
   const state = !S.device.registered ? '기기 미등록' : d.state === 'driving' ? '운행 기록 중' : d.state === 'ending' ? '하차 확인 중…' : '운행 대기';
   el.innerHTML = `
+    <div class="flex flex-col gap-2 pb-3 mb-1 border-b border-line">
+      <span class="text-[12px] font-bold text-sub px-1">언어 · Language</span>
+      ${LangToggle()}
+    </div>
     <div class="flex flex-col gap-1 px-1">
       <span class="text-[12px] font-black text-brand tracking-wider">DEMO</span>
       <span class="text-[19px] font-black text-ink leading-[26px]">데모 시나리오</span>
@@ -883,7 +953,7 @@ SCREENS.reports = () => {
   const past = ['2026-09', '2026-08'];
   const stBadge = st => st === 'submitted'
     ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-chip text-sub font-bold">제출 완료</span>`
-    : `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-brand text-white font-bold">제출 대기</span>`;
+    : `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-brand text-white font-bold whitespace-nowrap">제출 대기</span>`;
   return `
   ${TabHeader('운행일지 보고서')}
   <div class="px-6 flex flex-col gap-4">
@@ -936,7 +1006,7 @@ SCREENS.reportView = ({ ym }) => {
       <span class="text-[13px] text-sub">${isCur ? '10월 1일 ~ 오늘 기준 중간 집계' : `${fmtDot(r.gen)} 자동 생성`}</span>
       ${r.st === 'submitted' ? `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-chip text-sub font-bold">제출 완료 · ${fmtDot(r.sub)}</span>`
         : isCur ? `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-peach text-brand font-bold">작성 중</span>`
-        : `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-brand text-white font-bold">제출 대기</span>`}
+        : `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-brand text-white font-bold whitespace-nowrap">제출 대기</span>`}
     </div>
 
     <!-- 보고서 문서(종이) -->
@@ -1018,7 +1088,7 @@ SCREENS.more = () => {
     <button onclick="go('profile')" class="rounded-[14px] bg-white border border-line px-5 py-[18px] flex items-center gap-4 text-left">
       <span class="w-[52px] h-[52px] rounded-full bg-peach flex items-center justify-center text-[20px] font-black text-brand shrink-0">${esc(S.me.name[0])}</span>
       <span class="flex-1 min-w-0 flex flex-col gap-[3px]">
-        <span class="flex items-center gap-2"><span class="text-[17px] font-black text-ink">${esc(S.me.name)}</span><span class="text-[11px] px-[7px] py-[2px] rounded-[6px] ${S.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-sub'} font-bold">${S.role === 'admin' ? '관리자' : '일반 사용자'}</span></span>
+        <span class="flex items-center gap-2 min-w-0"><span class="text-[17px] font-black text-ink truncate">${esc(S.me.name)}</span><span class="text-[11px] px-[7px] py-[2px] rounded-[6px] whitespace-nowrap shrink-0 ${S.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-sub'} font-bold">${S.role === 'admin' ? '관리자' : '일반 사용자'}</span></span>
         <span class="text-[13px] text-sub truncate">${esc(S.me.email)}</span>
         <span class="text-[12px] text-sub">${COMPANY.name}${S.me.dept ? ' · ' + esc(S.me.dept) : ''}</span>
       </span>
@@ -1131,11 +1201,15 @@ function openNotifSheet() {
 function openFbtInfo() {
   openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
     <h3 class="text-[20px] font-black text-ink">FBT 운행일지 안내</h3>
-    <div class="flex flex-col gap-3 text-[14px] text-ink leading-[22px]">
+    <div class="flex flex-col gap-3 text-[14px] text-ink leading-[22px]">${L(`
       <p><b>FBT(Fringe Benefits Tax)</b>는 호주에서 회사가 직원에게 제공한 복리후생에 대해 <b>회사가 부담</b>하는 세금이에요.</p>
       <p>법인 명의로 소유·리스한 차량을 직원(주주·임직원 포함)이 <b>업무 외 개인 용도</b>로 쓸 수 있게 하면 FBT 대상이 될 수 있어요.</p>
       <p>운행일지로 <b>업무 사용 비율</b>을 입증하면 과세 대상 금액 산정에 활용할 수 있어요. FINE FBT는 운행마다 업무/개인을 기록해 이 비율을 자동으로 계산해요.</p>
-      <p class="text-[12px] text-sub">※ 세부 신고 기준은 회사의 세무 담당자 또는 ATO 안내를 확인해 주세요.</p>
+      <p class="text-[12px] text-sub">※ 세부 신고 기준은 회사의 세무 담당자 또는 ATO 안내를 확인해 주세요.</p>`, `
+      <p><b>Fringe Benefits Tax (FBT)</b> is an Australian tax <b>paid by the employer</b> on benefits provided to employees.</p>
+      <p>When a company-owned or leased car is made available to an employee (including shareholders and directors) for <b>private use</b>, FBT may apply.</p>
+      <p>A logbook that proves the <b>business-use percentage</b> can be used when calculating the taxable value. FINE FBT records business or private for every trip and calculates this percentage automatically.</p>
+      <p class="text-[12px] text-sub">※ Please confirm reporting requirements with your tax adviser or the ATO.</p>`)}
     </div>
     ${BtnGhost('닫기', 'closeSheet()')}
   </div>`);
@@ -1198,7 +1272,7 @@ SCREENS.device = () => {
   let body = '';
   if (DR.step === 1) {
     body = `
-      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${DR.scanning ? '블랙박스를 찾고 있어요' : '연결할 블랙박스를<br/>선택해 주세요'}</h2><p class="text-[14px] text-sub">${DR.scanning ? '블랙박스 전원을 켜고 휴대폰을 가까이 두세요.' : `${DR.found.length}대의 블랙박스를 찾았어요. 신호가 가장 강한 기기가 내 차량이에요.`}</p></div>
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${DR.scanning ? '블랙박스를 찾고 있어요' : L('연결할 블랙박스를<br/>선택해 주세요', 'Select the dashcam<br/>to connect')}</h2><p class="text-[14px] text-sub">${DR.scanning ? '블랙박스 전원을 켜고 휴대폰을 가까이 두세요.' : `${DR.found.length}대의 블랙박스를 찾았어요. 신호가 가장 강한 기기가 내 차량이에요.`}</p></div>
       ${DR.scanning ? `
       <div class="flex justify-center py-6"><div class="radar relative w-[160px] h-[160px]"><span></span><span></span><span></span>
         <div class="absolute inset-[52px] rounded-full bg-brand flex items-center justify-center">${I.device('#fff', 26)}</div></div></div>
@@ -1214,7 +1288,7 @@ SCREENS.device = () => {
   } else if (DR.step === 2) {
     const bts = [{ n: 'TUCSON_BT', d: '최근 연결 · 차량 핸즈프리' }, { n: 'HILUX-AUDIO', d: '차량 핸즈프리' }, { n: 'Galaxy Buds2', d: '오디오 기기' }];
     body = `
-      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">차량 블루투스를<br/>선택해 주세요</h2><p class="text-[14px] text-sub">휴대폰과 페어링된 차량 핸즈프리를 선택하면 탑승을 더 정확히 인식해요.</p></div>
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${L('차량 블루투스를<br/>선택해 주세요', 'Select your<br/>car Bluetooth')}</h2><p class="text-[14px] text-sub">휴대폰과 페어링된 차량 핸즈프리를 선택하면 탑승을 더 정확히 인식해요.</p></div>
       <div class="flex flex-col">
         ${bts.map(b => `<button onclick="DR.carBt='${b.n}';refresh()" class="flex items-center gap-4 py-4 border-b border-line last:border-b-0 text-left">
           <span class="w-[42px] h-[42px] rounded-[12px] ${DR.carBt === b.n ? 'bg-brand' : 'bg-chip'} flex items-center justify-center">${I.bt(DR.carBt === b.n ? '#fff' : '#20262D', 20)}</span>
@@ -1226,7 +1300,7 @@ SCREENS.device = () => {
   } else if (DR.step === 3) {
     const mine = VEHICLES.filter(v => v.userId === S.me.id);
     body = `
-      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">연결할 차량을<br/>확인해 주세요</h2><p class="text-[14px] text-sub">관리자가 배정한 회사 차량이에요.</p></div>
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${L('연결할 차량을<br/>확인해 주세요', 'Confirm the vehicle<br/>to connect')}</h2><p class="text-[14px] text-sub">관리자가 배정한 회사 차량이에요.</p></div>
       ${mine.length ? `<div class="flex flex-col gap-2">${mine.map(v => `<button onclick="DR.vehicleId='${v.id}';refresh()" class="rounded-[14px] border-2 ${DR.vehicleId === v.id ? 'border-brand bg-peach' : 'border-line bg-white'} px-4 py-4 flex items-center gap-4 text-left">
           ${I.car(DR.vehicleId === v.id ? '#E96E0A' : '#20262D', 28)}
           <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[16px] font-bold text-ink">${v.make} ${v.model} · ${v.year}</span><span class="text-[13px] text-sub">${v.rego} · ${v.own} · ${v.fuel}</span></span>
@@ -1341,7 +1415,7 @@ SCREENS.company = () => {
   return `
   ${TopBar('사업자 정보')}
   <div class="px-6 flex flex-col gap-5 pt-2">
-    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">사업자 정보를<br/>확인해 주세요</h2><p class="text-[14px] text-sub">운행일지 보고서와 FBT 신고 자료에 표기돼요.</p></div>
+    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${L('사업자 정보를<br/>확인해 주세요', 'Check your<br/>business details')}</h2><p class="text-[14px] text-sub">운행일지 보고서와 FBT 신고 자료에 표기돼요.</p></div>
     ${field('회사명 (법인명)', `<input id="coName" value="${esc(CO.name)}" oninput="CO.name=this.value" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink" />`)}
     ${field('사업자 등록번호 (ABN)', `
       <div class="flex gap-2">
@@ -1392,7 +1466,7 @@ SCREENS.vehicleForm = () => {
   return `
   ${TopBar('차량 등록')}
   <div class="px-6 flex flex-col gap-5 pt-2">
-    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">회사 차량 정보를<br/>입력해 주세요</h2></div>
+    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${L('회사 차량 정보를<br/>입력해 주세요', 'Enter company<br/>vehicle details')}</h2></div>
     ${inp('rego', '차량 등록번호 (Rego)', '예: ABC 12D')}
     <div class="grid grid-cols-2 gap-3">${inp('make', '제조사', '예: Toyota')}${inp('model', '모델', '예: RAV4')}</div>
     ${inp('year', '연식', '예: 2025')}
@@ -1879,7 +1953,7 @@ SCREENS.bbIncident = ({ pre } = {}) => {
     ${TopBar('사고 영상 보내기')}
     <div class="px-6 pt-10 flex flex-col items-center gap-4 text-center">
       <span class="w-[72px] h-[72px] rounded-full bg-peach flex items-center justify-center">${I.check('#E96E0A', 34)}</span>
-      <p class="text-[22px] font-black text-ink leading-[30px]">${admins.length ? `${admins[0].name}님(관리자)에게<br/>사고를 보고했어요` : '회사 사고 기록에<br/>저장했어요'}</p>
+      <p class="text-[22px] font-black text-ink leading-[30px]">${admins.length ? L(`${admins[0].name}님(관리자)에게<br/>사고를 보고했어요`, `Incident reported to<br/>${tr(admins[0].name)} (admin)`) : L('회사 사고 기록에<br/>저장했어요', 'Saved to company<br/>incident records')}</p>
       <p class="text-[14px] text-sub leading-[21px]">영상 ${INC.sel.size}개가 휴대폰에 저장됐어요.<br/>보험사나 경찰에도 바로 보낼 수 있어요.</p>
       <div class="w-full flex flex-col gap-2 pt-6">
         ${BtnPrimary('보험사 등 다른 곳에 공유', `bbShare(${JSON.stringify([...INC.sel]).replace(/"/g, "'")})`)}
@@ -1900,7 +1974,7 @@ SCREENS.bbIncident = ({ pre } = {}) => {
   return `
   ${TopBar('사고 영상 보내기')}
   <div class="px-6 flex flex-col gap-5 pt-1 pb-[90px]">
-    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">사고 시점의 영상을<br/>선택해 주세요</h2><p class="text-[14px] text-sub">선택한 영상을 휴대폰에 저장한 뒤 관리자에게 보고해요.</p></div>
+    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${L('사고 시점의 영상을<br/>선택해 주세요', 'Select the videos<br/>from the incident')}</h2><p class="text-[14px] text-sub">선택한 영상을 휴대폰에 저장한 뒤 관리자에게 보고해요.</p></div>
     <section class="flex flex-col"><span class="text-[13px] font-bold text-ink flex items-center gap-[6px] pb-1">${IMPACT(14)}자동 감지된 충격 영상</span>${events.length ? events.map(row).join('') : `<p class="text-[13px] text-sub py-3">감지된 충격 영상이 없어요.</p>`}</section>
     <section class="flex flex-col"><span class="text-[13px] font-bold text-ink pb-1">최근 주행 영상</span>${recent.map(row).join('')}</section>
     <label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">사고 내용 (선택)</span>
@@ -2092,9 +2166,265 @@ function BbTripSection(t) {
 /* ---------- 데모: 블랙박스 근처/멀어짐 ---------- */
 function demoNear() { S.bb.near = !S.bb.near; S.bb.wifi = false; toast(S.bb.near ? '블랙박스가 근처에 있어요 (BLE 연결)' : '블랙박스에서 멀어졌어요 (BLE 해제)'); refresh(); }
 
+/* ---------------- i18n dictionary (한국어 → English) ---------------- */
+const MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DOW_EN = { 일: 'Sun', 월: 'Mon', 화: 'Tue', 수: 'Wed', 목: 'Thu', 금: 'Fri', 토: 'Sat' };
+const I18N = {
+  // ── 사람 · 부서 · 장소 · 목업 데이터
+  '김민준': 'Minjun Kim', '박서연': 'Seoyeon Park', '이도윤': 'Doyun Lee', '최하은': 'Haeun Choi', '홍길동': 'Jane Smith',
+  '김': 'M', '박': 'S', '이': 'D', '최': 'H',
+  '경영지원팀': 'Business Support', '영업팀': 'Sales', '물류팀': 'Logistics',
+  '자택': 'Home', '본사': 'HQ', '고객사': 'Client', '현장': 'Site', '물류센터': 'Warehouse',
+  '고객 방문': 'Client visit', '현장 점검': 'Site inspection', '회의·미팅': 'Meeting', '물품 배송': 'Delivery', '기타 업무': 'Other business',
+  '출퇴근': 'Commute', '개인 용무': 'Personal errand', '기타 개인': 'Other private',
+  '리스': 'Leased', '소유': 'Owned', '가솔린': 'Petrol', '디젤': 'Diesel', '하이브리드': 'Hybrid', '전기': 'Electric',
+  '끄기': 'Off', '모션 감지': 'Motion detect', '타임랩스': 'Time-lapse', '낮음': 'Low', '보통': 'Medium', '높음': 'High', '작게': 'Low', '크게': 'High',
+  '대': '', '명': '', '분': 'min',
+
+  // ── 공통
+  '홈': 'Home', '운행기록': 'Trips', '보고서': 'Reports', '관리': 'Admin', '더보기': 'More', '뒤로': 'Back',
+  '확인': 'Verify', '취소': 'Cancel', '닫기': 'Close', '저장': 'Save', '완료': 'Done', '다음': 'Next', '삭제': 'Delete', '해제': 'Unregister',
+  '변경': 'Change', '선택': 'Select', '전체': 'All', '전체보기': 'See all', '업무': 'Business', '개인': 'Private', '미분류': 'Unclassified',
+  '업무용': 'Business', '개인용': 'Private', '지금': 'now', '없음': 'None', '알림': 'Notifications', '설정': 'Settings',
+  '데모': 'Demo', '요청': 'Request', '최신': 'Latest', '고정': 'Locked', '관리자': 'Admin', '일반 사용자': 'Standard user',
+  '사용 중': 'Active', '상태': 'Status', '권한': 'Role', '이름': 'Name', '이메일': 'Email', '비밀번호': 'Password',
+  '등록하기': 'Register', '등록됨': 'Registered', '미등록': 'Not registered', '미배정': 'Unassigned', '나중에 배정': 'Assign later',
+  '차량': 'Vehicle', '운전자': 'Driver', '출발': 'From', '도착': 'To', '목적': 'Purpose', '일자': 'Date',
+  '언어 · Language': 'Language', '운행일지': 'logbook', '근처에 있음': 'Nearby', '현재': 'Current', '후방': 'Rear',
+
+  // ── 로그인
+  '타면 기록되고,': 'Just drive.', '월말엔 보고서가': 'Your logbook', '완성돼요.': 'writes itself.',
+  '블랙박스가 운행 시작·종료를 자동으로 인식해': 'Your dashcam detects every trip start and end,',
+  'FBT 신고용 운행일지를 만들어 드려요.': 'and builds an FBT-ready car logbook for you.',
+  '데모 계정으로 시작하기': 'Start with a demo account', '일반 사용자로 로그인': 'Log in as standard user', '관리자로 로그인': 'Log in as admin',
+
+  // ── 데모 패널 / 데모 버튼
+  '데모 시나리오': 'Demo scenarios', '블랙박스 · 차량 BT 이벤트를': 'Simulate dashcam and car Bluetooth', '재현해 시연해 보세요.': 'events for your demo.',
+  '로그인하면 사용할 수 있어요.': 'Available after you log in.', '운행 상태': 'Trip status', '블랙박스': 'Dashcam',
+  '근처 (BLE 연결)': 'Nearby (BLE)', '멀리 있음': 'Out of range', '기기 미등록': 'No device', '운행 기록 중': 'Logging trip',
+  '하차 확인 중…': 'Checking exit…', '운행 대기': 'Standby',
+  '🚗 탑승 · 시동 ON': '🚗 Get in · Ignition ON', '🔑 시동 OFF · 하차': '🔑 Ignition OFF · Exit', '📡 블박에서 멀어짐': '📡 Walk away from dashcam', '📡 블박 근처로': '📡 Go near dashcam',
+  '탑승 · 시동 ON': 'Get in · Ignition ON', '시동 OFF · 하차': 'Ignition OFF · Exit', '블박에서 멀어짐': 'Walk away from dashcam', '블박 근처로': 'Go near dashcam',
+  '운행 중 1초 = 주행 1분으로 가속돼요.': 'While driving, 1 sec = 1 min of driving.', '하차 확인은 3초로 단축했어요.': 'Exit check is shortened to 3 sec.',
+  '권한 전환 · 현재': 'Switch role · Current:', '관리자로 전환': 'Switch to admin', '일반 사용자로 전환': 'Switch to standard user',
+  '권한별 화면을 비교해 보세요': 'Compare screens by role', '데모 시나리오 · 블랙박스/차량 BT 이벤트 재현': 'Demo · Simulate dashcam / car Bluetooth events',
+
+  // ── 홈
+  '오늘도 안전 운행하세요.': 'drive safe today.', '배정된 차량 없음': 'No vehicle assigned', '차량 연결됨': 'Car connected', '연결 대기': 'Waiting',
+  '차량에 타면': 'Just get in.', '자동으로 기록해요.': "We'll log it.", '시동 ON 시 운행 기록이 시작돼요.': 'Logging starts when the ignition turns on.',
+  '블랙박스 대기': 'Dashcam standby', '주행 시간': 'Drive time', '주행 거리': 'Distance',
+  '시동 OFF 또는 차량 BT 연결이 해제되면 하차 여부를 확인해 자동으로 종료돼요.': 'When the ignition turns off or car Bluetooth disconnects, we confirm you have left the car and end the trip.',
+  '시동 OFF · 차량 BT 연결 해제됨': 'Ignition OFF · Car Bluetooth disconnected', '하차 여부를': 'Checking whether', '확인하고 있어요…': 'you have left the car…',
+  '실서비스 기준: 시동 OFF 후 일정 시간(예: 3분) 동안 재연결이 없으면 하차로 판단해요. 데모는 3초로 단축했어요.': 'In production, an exit is confirmed if there is no reconnection for a set time (e.g. 3 min) after ignition off. The demo uses 3 sec.',
+  '블랙박스를 등록하면': 'Register your dashcam', '운행이 자동 기록돼요.': 'and trips are logged automatically.', '기기 등록하기': 'Register device',
+  '목적 선택이 필요한 운행이 있어요': 'Some trips need a purpose', '미분류 운행은 보고서 제출 전에 분류해 주세요.': 'Classify these trips before submitting your report.',
+  '운행일지 보고서': 'Logbook report', '업무 사용 비율 (Business use)': 'Business use percentage', '이번 달 업무 운행 비율': 'Business use this month',
+  '최근 운행': 'Recent trips', '회사 현황': 'Company overview', '등록 차량': 'Vehicles', '사용자': 'Users',
+  '내 블랙박스': 'My dashcam', '블랙박스 관리': 'Manage dashcam', '근처에 없음': 'Out of range', '근처에 있음 · BLE 연결': 'Nearby · BLE connected',
+  '운행 중 · 영상 기능 제한': 'Driving · video features locked', '영상 보기': 'Videos', '라이브 뷰': 'Live view', '사고 보고': 'Report incident',
+  '블랙박스와 Wi-Fi로 직접 연결해야 해서 차량 근처에서 이용할 수 있어요.': 'Videos need a direct Wi-Fi link to the dashcam, so they are available near the car.',
+  '관리자가 펌웨어 업데이트를 요청했어요': 'Your admin requested a firmware update',
+
+  // ── 알림 배너 · 토스트
+  '차량 연결됨 · 운행 기록 시작': 'Car connected · Trip logging started', '운행이 종료되었어요': 'Your trip has ended',
+  '알림 목록 (데모)': 'Notifications (demo)', '안전을 위해 운행 중에는 이용할 수 없어요': 'Not available while driving, for your safety',
+  '블랙박스가 근처에 없어요. 차량 근처에서 이용해 주세요': 'Dashcam not nearby. Use this near your car.',
+  '블랙박스가 근처에 있어요 (BLE 연결)': 'Dashcam is nearby (BLE connected)', '블랙박스에서 멀어졌어요 (BLE 해제)': 'You walked away from the dashcam (BLE off)',
+  '미분류로 저장했어요. 운행기록에서 언제든 선택할 수 있어요': 'Saved as unclassified. You can set the purpose anytime in Trips.',
+  '업무용 운행으로 저장했어요': 'Saved as a business trip', '개인용 운행으로 저장했어요': 'Saved as a private trip',
+  'PDF 파일로 저장했어요 (데모)': 'Saved as PDF (demo)', '관리자에게 보고서를 제출했어요': 'Report submitted to your admin',
+  '기기 등록을 해제했어요': 'Device unregistered', '기기 등록이 완료됐어요': 'Device registration complete', '블랙박스와 연결했어요': 'Connected to dashcam',
+  '사업자 정보를 저장했어요': 'Business details saved', 'ABN 조회 완료 (데모)': 'ABN verified (demo)', 'ABN 형식이 올바르지 않아요': 'ABN format is invalid',
+  'ABN을 확인해 주세요': 'Please verify the ABN', '회사명을 입력해 주세요': 'Please enter the company name',
+  '등록번호, 제조사, 모델을 입력해 주세요': 'Enter the rego, make and model', '차량을 등록했어요': 'Vehicle registered', '차량을 삭제했어요': 'Vehicle deleted',
+  '배정을 해제했어요': 'Assignment removed', '권한을 변경했어요': 'Role updated', '사용자를 삭제했어요': 'User removed', '초대 메일을 다시 보냈어요': 'Invitation resent',
+  '이름을 입력해 주세요': 'Please enter a name', '이메일 형식을 확인해 주세요': 'Please check the email format', '프로필을 저장했어요': 'Profile saved',
+  '사진 변경 (데모)': 'Change photo (demo)', '탈퇴 처리됐어요 (데모 · 계정은 유지돼요)': 'Account deleted (demo · the account is kept)',
+  '차량 배정은 관리자가 설정해요': 'Vehicle assignment is managed by your admin', '휴대폰 앨범에 저장했어요': 'Saved to your phone gallery',
+  '현재 화면을 앨범에 저장했어요 (데모)': 'Screenshot saved to gallery (demo)', '블랙박스에 설정을 적용했어요': 'Settings applied to dashcam',
+  '펌웨어 업데이트를 완료했어요': 'Firmware update complete', '영상을 삭제했어요': 'Video deleted', '업데이트를 요청했어요': 'Update requested',
+  '공유를 완료했어요 (데모)': 'Shared (demo)', '회사 사고 기록에 저장했어요': 'Saved to company incident records', '블랙박스 Wi-Fi에 연결하고 있어요': 'Connecting to dashcam Wi-Fi',
+
+  // ── 운행 목적 시트
+  '운행 종료': 'Trip ended', '운행 목적 변경': 'Change trip purpose', '운행 목적 선택': 'Select trip purpose',
+  '이번 운행은': 'What was the purpose', '어떤 목적이었나요?': 'of this trip?', '주행거리계': 'Odometer',
+  '고객 방문, 배송 등': 'Client visits, deliveries', '업무 목적 운행': 'and other work trips', '출퇴근, 개인 용무 등': 'Commuting, errands', '사적 사용': 'and other private use',
+  '세부 목적': 'Purpose detail', '자택↔근무지 출퇴근은 FBT 기준 개인(사적) 사용으로 분류돼요.': 'Home–work commuting counts as private use for FBT.',
+  '메모 (선택) · 예: ○○사 납품 미팅': 'Note (optional) · e.g. supplier meeting', '나중에 선택': 'Decide later',
+
+  // ── 운행기록 / 상세
+  '총 주행': 'Total', '해당하는 운행 기록이 없어요.': 'No matching trips.', '운행 상세': 'Trip details', '운행 목적': 'Trip purpose',
+  '아직 선택하지 않았어요': 'Not selected yet', '주행거리계 (시작)': 'Odometer (start)', '주행거리계 (종료)': 'Odometer (end)',
+  '기록 방식': 'Recorded by', '블랙박스 자동 감지': 'Dashcam auto-detection', '블랙박스 영상': 'Dashcam videos', '충격 감지': 'Impact detected',
+  '블랙박스와 Wi-Fi로 연결해 영상을 불러와요. 차량 근처에서 이용할 수 있어요.': 'Videos load over the dashcam Wi-Fi. Available near your car.',
+  'SD 카드 보관 기간(약 7일)이 지나 이 운행의 영상은 남아 있지 않아요.': 'Videos for this trip are no longer on the SD card (about 7 days are kept).',
+
+  // ── 보고서
+  '이번 달 운행일지가': 'This month\'s logbook is', '자동으로 쌓이고 있어요.': 'building up automatically.', '운행': 'Trips', '총 거리': 'Distance', '업무 비율': 'Business %',
+  '· 목적을 선택해 주세요': '· please set a purpose', '중간 미리보기': 'Interim preview', '지난 보고서': 'Past reports', '제출 완료': 'Submitted', '제출 대기': 'Ready to submit',
+  '작성 중': 'In progress', '11월 1일 자동 생성': 'Auto-generated Nov 1',
+  '보고서는 매월 1일 전월 운행 기록으로 자동 생성되며, 확인 후 관리자에게 제출하면 FBT 신고 자료로 활용돼요. FBT 연도: 2026.04.01 ~ 2027.03.31': 'Reports are generated on the 1st of each month from the previous month\'s trips. Once you review and submit them to your admin, they support the FBT return. FBT year: 2026.04.01 ~ 2027.03.31',
+  '차량 운행일지': 'Car logbook', '회사명': 'Company', '등록번호': 'Rego', '소유 형태': 'Ownership', '기간 시작 주행거리계': 'Opening odometer', '기간 종료 주행거리계': 'Closing odometer',
+  '총 주행거리': 'Total km', '업무 주행거리': 'Business km', '개인 주행거리': 'Private km', '업무 사용 비율': 'Business use', '출발→도착': 'From → To',
+  '시작/종료': 'Start/End', '블랙박스 시동·BT 연결 이벤트 기반 자동 기록': 'Auto-recorded from dashcam ignition and Bluetooth events',
+  '생성: FINE FBT': 'Generated by FINE FBT', '운전자 서명': 'Driver signature', '관리자에게 제출': 'Submit to admin', 'PDF로 내보내기': 'Export as PDF',
+  '10월 보고서는 11월 1일에 자동 생성된 후 제출할 수 있어요.': 'The October report can be submitted after it is generated on Nov 1.',
+  '모든 운행의 목적을 선택해야 보고서를 제출할 수 있어요.': 'Set a purpose for every trip before submitting the report.', '분류하러 가기': 'Classify trips',
+  '제출할까요?': '', '제출 후에는 관리자 승인 없이 수정할 수 없어요.': 'After submission, changes require admin approval.', '제출하기': 'Submit',
+
+  // ── 더보기 / 프로필
+  '기기 · 차량': 'Device · Vehicle', '블랙박스 · 기기 관리': 'Dashcam · Device', '내 차량': 'My vehicle', '등록된 기기가 없어요': 'No device registered',
+  '관리자에게 차량 배정을 요청하세요': 'Ask your admin to assign a vehicle', '알림 설정': 'Notification settings', '운행 시작·종료, 미분류, 보고서 알림': 'Trip start/end, unclassified and report alerts',
+  'FBT 운행일지 안내': 'About FBT logbooks', '운행일지가 왜 필요한가요?': 'Why do I need a logbook?',
+  '운행 시작 알림': 'Trip start', '시동 ON 감지 시 기록 시작을 알려요': 'Notify when logging starts at ignition on',
+  '운행 종료 · 목적 선택 알림': 'Trip end · purpose prompt', '하차 판단 후 업무/개인 선택을 요청해요': 'Ask for business/private after you leave the car',
+  '미분류 운행 리마인드': 'Unclassified trip reminder', '매일 저녁 8시, 미분류 운행이 있으면 알려요': 'Daily at 8 pm if any trips are unclassified',
+  '월간 보고서 알림': 'Monthly report', '매월 1일 보고서 생성 시 알려요': 'Notify when the report is generated on the 1st',
+  '프로필': 'Profile', '휴대폰 번호': 'Mobile number', '소속 회사': 'Company', '소속·권한·배정 차량은 관리자가 변경해요.': 'Company, role and vehicle are managed by your admin.',
+  '배정 차량': 'Assigned vehicle', '로그아웃': 'Log out', '회원 탈퇴': 'Delete account', '사진 변경': 'Change photo',
+  '로그아웃할까요?': 'Log out?', '로그아웃하면 운행이 자동으로 기록되지 않아요. 다시 로그인하면 이어서 기록돼요.': 'Trips are not logged while you are logged out. Logging resumes when you log in again.',
+  '정말 탈퇴할까요?': 'Delete your account?', '탈퇴하면 이 계정으로 로그인할 수 없고, 운행이 더 이상 기록되지 않아요.': 'You will no longer be able to log in, and trips will no longer be logged.',
+  '이미 기록된 운행일지와 제출한 보고서는 FBT 신고 자료로 회사에 보관돼요.': 'Existing logbooks and submitted reports stay with your company as FBT records.',
+  '배정된 차량과 등록된 블랙박스 연결은 해제돼요.': 'Your assigned vehicle and registered dashcam will be unlinked.', '안내 내용을 확인했어요': 'I understand', '탈퇴하기': 'Delete account',
+  '다른 관리자를 지정한 뒤': 'Assign another admin', '탈퇴할 수 있어요': 'before deleting your account',
+  '회사의 유일한 관리자예요. 사용자 관리에서 다른 사용자에게 관리자 권한을 준 뒤 다시 시도해 주세요.': 'You are the only admin. Give admin rights to another user in User management, then try again.',
+
+  // ── 기기 관리 / 등록
+  '기기 관리': 'Device', '등록된 블랙박스가 없어요': 'No dashcam registered', '블랙박스와 차량 블루투스를 등록하면': 'Register your dashcam and car Bluetooth', '탑승·하차를 자동으로 인식해요.': 'to detect getting in and out automatically.',
+  '차량 블루투스(핸즈프리)': 'Car Bluetooth (hands-free)', '자동 기록 동작 방식': 'How auto-logging works',
+  '차량 탑승 시 차량 BT·블랙박스 연결을 감지해 앱이 자동 실행돼요.': 'When you get in, the app detects the car Bluetooth and dashcam and starts automatically.',
+  '시동 ON 이벤트로 운행 기록을 시작해요.': 'Trip logging starts with the ignition ON event.', '시동 OFF 또는 BT 해제 후 일정 시간이 지나면 하차로 판단해요.': 'After ignition off or Bluetooth disconnect, an exit is confirmed after a set time.',
+  '저장 전 업무용/개인용 목적을 선택해요.': 'Choose business or private before the trip is saved.', '다른 기기로 다시 등록': 'Register a different device', '기기 등록 해제': 'Unregister device',
+  '기기 등록을 해제할까요?': 'Unregister this device?', '해제하면 운행이 자동으로 기록되지 않아요. 기존 운행 기록은 유지돼요.': 'Trips will no longer be logged automatically. Existing trips are kept.',
+  '기기 등록': 'Register device', '차량 BT': 'Car BT', '권한': 'Role', '블랙박스를 찾고 있어요': 'Searching for your dashcam', '블랙박스 전원을 켜고 휴대폰을 가까이 두세요.': 'Turn on the dashcam and keep your phone close.',
+  'BT/Wi-Fi 동글 검색 중…': 'Searching for BT/Wi-Fi dongle…', '연결할 블랙박스를': 'Select the dashcam', '선택해 주세요': 'to connect', '다시 검색': 'Search again',
+  '신호 강함': 'strong signal', '신호 약함': 'weak signal', '차량 블루투스를': 'Select your', '최근 연결 · 차량 핸즈프리': 'Recently connected · car hands-free', '차량 핸즈프리': 'Car hands-free', '오디오 기기': 'Audio device',
+  '휴대폰과 페어링된 차량 핸즈프리를 선택하면 탑승을 더 정확히 인식해요.': 'Choosing the car hands-free paired with your phone makes boarding detection more accurate.',
+  '목록에 없다면 휴대폰 설정 › 블루투스에서 차량과 먼저 페어링해 주세요.': 'Not listed? Pair with your car first in Settings › Bluetooth.',
+  '연결할 차량을': 'Confirm the vehicle', '확인해 주세요': 'to connect', '관리자가 배정한 회사 차량이에요.': 'Company vehicles assigned by your admin.',
+  '배정된 차량이 없어요. 관리자에게 차량 배정을 요청해 주세요.': 'No vehicle assigned. Ask your admin to assign one.',
+  '자동 기록을 위한': 'Allow permissions', '권한을 허용해 주세요': 'for auto-logging', '앱을 열지 않아도 운행을 기록하려면 필요해요.': 'Needed to log trips without opening the app.',
+  '위치 · 항상 허용': 'Location · Always', '출발·도착 위치와 주행 경로 기록': 'Records start/end points and route', '블루투스': 'Bluetooth', '블랙박스·차량 BT 연결 감지': 'Detects dashcam and car Bluetooth',
+  '백그라운드 실행': 'Background activity', '탑승 시 앱 자동 실행': 'Starts the app when you get in', '등록 완료': 'Finish', '자동 기록을 위해 모든 권한이 필요해요.': 'All permissions are required for auto-logging.',
+  'BT/Wi-Fi 동글': 'BT/Wi-Fi dongle',
+
+  // ── 블랙박스 허브 / 영상
+  '블랙박스 정책': 'Dashcam policy', '블랙박스 설정': 'Dashcam settings', '펌웨어 업데이트': 'Firmware update', '기기 정보 · 등록': 'Device info · Registration',
+  '새 버전': 'New', '약 7일 분량 보관': 'Keeps about 7 days', '사고 영상 보내기': 'Send incident videos',
+  '블랙박스 영상은 서버로 전송되지 않아요. 차량 근처에서 블랙박스와 Wi-Fi로 연결해 휴대폰에 저장한 뒤 공유할 수 있어요.': 'Dashcam videos are never uploaded to a server. Near your car, connect to the dashcam over Wi-Fi, save videos to your phone, then share them.',
+  '블랙박스 영상은 서버로 전송되지 않아요. 차량 근처에서 블랙박스와 Wi-Fi로 연결해 휴대폰에 저장한 뒤 공유할 수 있어요. 영상 삭제는 관리자만 할 수 있어요.': 'Dashcam videos are never uploaded to a server. Near your car, connect to the dashcam over Wi-Fi, save videos to your phone, then share them. Only admins can delete videos.',
+  'TUCSON_BT · 재등록 · 등록 해제': 'TUCSON_BT · Re-register · Unregister', 'FINE BX-10 · 영상 · 설정 · 업데이트': 'FINE BX-10 · Videos · Settings · Updates',
+  '블랙박스 영상': 'Dashcam videos', '운행 영상': 'Trip videos', '전체 영상': 'All videos', '주행': 'Driving', '충격': 'Impact', '주차': 'Parking',
+  '주행 영상': 'Driving clip', '주행 충격': 'Driving impact', '주차 충격': 'Parking impact', '해당하는 영상이 없어요.': 'No matching videos.',
+  'SD 카드에 남아 있는 최근 약 7일(10월 21일~) 영상이에요.': 'Videos from about the last 7 days still on the SD card (from Oct 21).',
+  '전방': 'Front', '휴대폰에 저장': 'Save to phone', '저장 완료': 'Saved', '공유': 'Share', '휴대폰에 저장됨': 'Saved to phone', '저장됨': 'Saved',
+  '사고 영상으로 보고하기': 'Report as incident', '위치': 'Location', '유형': 'Type', '길이 · 화질': 'Length · Quality', '연결된 운행': 'Linked trip', '주차 중 녹화': 'Recorded while parked',
+  '블랙박스에서 영상 삭제': 'Delete video from dashcam', '사고 증거 보존을 위해 영상 삭제는 관리자만 할 수 있어요.': 'To preserve incident evidence, only admins can delete videos.',
+  '이 영상을 삭제할까요?': 'Delete this video?', '재생': 'Play', '휴대폰에 저장하고 있어요': 'Saving to your phone',
+  '휴대폰에 저장된 영상을 공유해요.': 'Share videos saved on your phone.', '관리자에게': 'Report to', '보고': 'admin', '회사 사고': 'Company', '기록': 'records', '메일': 'Email', '메시지': 'Messages', '다른 앱': 'Other apps',
+  '보험사·경찰 제출은 메일 또는 다른 앱으로 보낼 수 있어요. 공유 이력은 회사 접근 기록에 남아요.': 'Send to your insurer or police by email or another app. Sharing is recorded in the company access log.',
+  '전방 카메라': 'Front camera', '후방 카메라': 'Rear camera', '화면 캡처': 'Screenshot',
+  '라이브 뷰는 블랙박스 Wi-Fi에 연결된 동안에만 볼 수 있어요. 녹화는 블랙박스에서 계속 진행돼요.': 'Live view works only while connected to the dashcam Wi-Fi. Recording continues on the dashcam.',
+  '사고 시점의 영상을': 'Select videos from', '선택한 영상을 휴대폰에 저장한 뒤 관리자에게 보고해요.': 'Selected videos are saved to your phone and reported to your admin.',
+  '자동 감지된 충격 영상': 'Auto-detected impact videos', '최근 주행 영상': 'Recent driving videos', '감지된 충격 영상이 없어요.': 'No impacts detected.',
+  '사고 내용 (선택)': 'What happened (optional)', '예: 고객사 주차장 진입 중 후방 접촉': 'e.g. Rear contact entering the client car park',
+  '보험사 등 다른 곳에 공유': 'Share with insurer or others', '보험사나 경찰에도 바로 보낼 수 있어요.': 'You can also send them straight to your insurer or police.',
+  '녹화': 'Recording', '편의': 'Convenience', '녹화 해상도': 'Resolution', '주차 녹화': 'Parking mode', '충격 감도': 'Impact sensitivity', '안내 음성 볼륨': 'Voice guide volume',
+  '회사 정책으로 고정됨': 'Locked by company policy', '블랙박스 정책에서 변경': 'Change in Dashcam policy', '녹화 시작 알림음': 'Recording start sound', '시동 ON 후 녹화 시작 시 알림음': 'Chime when recording starts after ignition on',
+  '보안 LED': 'Security LED', '주차 중 LED 깜빡임 표시': 'Blinking LED while parked', '블랙박스에 적용': 'Apply to dashcam', '시간은 휴대폰과 자동으로 맞춰져요.': 'Time syncs with your phone automatically.',
+  '현재 버전': 'Current version', '최신 버전': 'Latest version', '최신 버전을 사용하고 있어요': 'You are on the latest version', '관리자가 이 버전으로 업데이트를 요청했어요': 'Your admin requested this update',
+  '시동 OFF 후 하차 판단 정확도 개선': 'Improved exit detection after ignition off', '차량 BT 재연결 시 운행 분리 오류 수정': 'Fixed trip splitting on car Bluetooth reconnect', '주차 중 충격 감지 안정성 향상': 'More reliable impact detection while parked',
+  '업데이트 시작': 'Start update', '약 3분 소요 · 업데이트하는 동안 녹화가 잠시 중단돼요.': 'Takes about 3 min · Recording pauses during the update.',
+  '업데이트 파일을 준비하고 있어요': 'Preparing the update file', '블랙박스로 전송하고 있어요 (Wi-Fi)': 'Sending to dashcam (Wi-Fi)', '설치 중이에요 · 블랙박스가 재부팅돼요': 'Installing · The dashcam will restart',
+  '업데이트 중에는 시동을 끄거나 차량에서 멀어지지 마세요.': 'Do not turn off the ignition or walk away during the update.', '업데이트를 완료했어요': 'Update complete',
+
+  // ── 관리 (관리자)
+  '사업자 정보': 'Business details', 'ABN 확인됨': 'ABN verified', '사업자 정보 수정': 'Edit business details', '차량 관리': 'Vehicles', '사용자 관리': 'Users',
+  '공통 설정 잠금 · 업데이트 요청 · 영상 접근 기록': 'Locked settings · Update requests · Video access log',
+  '사업자 정보를': 'Check your', '운행일지 보고서와 FBT 신고 자료에 표기돼요.': 'Shown on logbook reports and FBT records.',
+  '회사명 (법인명)': 'Company name (legal)', '사업자 등록번호 (ABN)': 'Australian Business Number (ABN)', '✓ 유효한 ABN이에요': '✓ Valid ABN',
+  '유효하지 않은 ABN이에요. 11자리를 다시 확인해 주세요.': 'Invalid ABN. Please check all 11 digits.', '11자리 숫자를 입력하고 확인을 눌러 주세요.': 'Enter the 11 digits and tap Verify.',
+  'FBT 연도': 'FBT year', 'FBT 연도는 매년 4월 1일 ~ 다음 해 3월 31일이에요.': 'The FBT year runs from 1 April to 31 March.', '사업장 주소': 'Business address',
+  '차량 등록': 'Add vehicle', '회사 명의로 소유하거나 리스한 차량을 등록하고 사용자에게 배정하세요.': 'Register company-owned or leased vehicles and assign them to users.',
+  '회사 차량 정보를': 'Enter company', '입력해 주세요': 'vehicle details', '차량 등록번호 (Rego)': 'Registration (Rego)', '예: ABC 12D': 'e.g. ABC 12D',
+  '제조사': 'Make', '예: Toyota': 'e.g. Toyota', '모델': 'Model', '예: RAV4': 'e.g. RAV4', '연식': 'Year', '예: 2025': 'e.g. 2025', '연료': 'Fuel', '배정 사용자': 'Assigned user',
+  '이미 차량이 배정된 사용자를 선택하면 기존 배정이 이 차량으로 바뀌어요.': 'If the user already has a vehicle, the assignment moves to this one.',
+  '차량 삭제': 'Delete vehicle', '삭제해도 이미 기록된 운행일지는 유지돼요.': 'Existing logbook records are kept.',
+  '회사 차량을 사용하는 임직원을 초대하고 권한을 관리하세요.': 'Invite staff who use company vehicles and manage their roles.', '사용자 초대': 'Invite user', '초대됨': 'Invited',
+  '초대 메일 보내기': 'Send invitation', '관리자는 사업자 정보·차량·사용자를 관리할 수 있어요.': 'Admins manage business details, vehicles and users.',
+  '일반 사용자는 본인 운행기록과 보고서만 볼 수 있어요.': 'Standard users see only their own trips and reports.',
+  '초대 수락 대기': 'Invitation pending', '본인 권한은 변경할 수 없어요.': 'You cannot change your own role.', '초대 메일 다시 보내기': 'Resend invitation', '사용자 삭제': 'Remove user',
+  '배정된 차량은 미배정 상태로 바뀌고, 제출된 운행일지는 유지돼요.': 'Their vehicle becomes unassigned; submitted logbooks are kept.', '배정 차량 없음': 'No vehicle',
+  '제출 요청': 'Remind', '회사 차량 블랙박스에 공통으로 적용할 설정과 업데이트, 영상 접근 이력을 관리해요.': 'Manage common settings, firmware updates and video access for company dashcams.',
+  '공통 녹화 설정': 'Common recording settings', '사용자 변경 허용': 'User can change',
+  '고정된 항목은 사용자가 바꿀 수 없고, 사용자가 차량 근처에서 앱을 열면 블랙박스에 적용돼요.': 'Locked items cannot be changed by users and are applied when a user opens the app near the car.',
+  '펌웨어': 'Firmware', '업데이트 필요': 'Update needed', '요청됨': 'Requested', '영상 접근 기록': 'Video access log',
+  '영상은 서버로 전송되지 않아요. 기록에는 휴대폰 저장·공유·삭제 이력만 남으며, 앱이 온라인일 때 동기화돼요.': 'Videos are never uploaded. The log records only saves, shares and deletions, and syncs when the app is online.',
+  '다운로드': 'Saved', '공유 · 관리자 보고': 'Shared · Reported to admin', '공유 · 메일': 'Shared · Email', '공유 · 메시지': 'Shared · Messages', '공유 · 다른 앱': 'Shared · Other app',
+  '배정:': 'Assigned:', '차량 근처에서 진행해 주세요': 'Please update near the car', '펌웨어 v': 'Firmware v',
+  // 문장 일부
+  '오늘 기준 중간 집계': 'interim total to date',
+};
+const I18N_INLINE = [
+  [/(\d{1,2})월 (\d{1,2})일 \(([일월화수목금토])\)/g, (_, m, d, w) => `${DOW_EN[w]}, ${MON_EN[m - 1]} ${d}`],
+  [/(\d{4})년 (\d{1,2})월/g, (_, y, m) => `${MONTH_EN[m - 1]} ${y}`],
+  [/(\d{1,2})월 (\d{1,2})일/g, (_, m, d) => `${MON_EN[m - 1]} ${d}`],
+];
+const T = s => trCore(s);
+const I18N_RULES = [
+  [/^(.+)님,$/, (_, n) => `Hi ${T(n)},`],
+  [/^(.+)님, 환영합니다$/, (_, n) => `Welcome, ${T(n)}`],
+  [/^(.+) \(나\)$/, (_, n) => `${T(n)} (me)`],
+  [/^(.+)님\(관리자\)에게 보고했어요$/, (_, n) => `Reported to ${T(n)} (admin)`],
+  [/^(.+)님에게 배정했어요$/, (_, n) => `Assigned to ${T(n)}`],
+  [/^(.+)님에게 업데이트를 요청했어요$/, (_, n) => `Update requested from ${T(n)}`],
+  [/^(.+)님에게 제출 요청 알림을 보냈어요$/, (_, n) => `Reminder sent to ${T(n)}`],
+  [/^(.+)님에게 초대 메일을 보냈어요$/, (_, n) => `Invitation sent to ${T(n)}`],
+  [/^(.+)님을 삭제할까요\?$/, (_, n) => `Remove ${T(n)}?`],
+  [/^(.+) 차량을 삭제할까요\?$/, (_, n) => `Delete vehicle ${n}?`],
+  [/^(.+) 운행일지를$/, (_, m) => `Submit the ${T(m)} logbook?`],
+  [/^(.+) 자동 생성$/, (_, d) => `Auto-generated ${T(d)}`],
+  [/^(\d+)월 (\d+)일 ~ 오늘 기준 중간 집계$/, (_, m, d) => `Interim total, ${MON_EN[m - 1]} ${d} – today`],
+  [/^(\d+)월 운행 현황$/, (_, m) => `${MONTH_EN[m - 1]} overview`],
+  [/^(\d+)월 운행일지 제출 현황$/, (_, m) => `${MONTH_EN[m - 1]} logbook submissions`],
+  [/^(\d+)월 제출$/, (_, m) => `${MON_EN[m - 1]} submitted`],
+  [/^(\d+)초$/, (_, n) => `${n}s`],
+  [/^(\d+)건$/, (_, n) => `${n}`],
+  [/^(\d+)건 · ([\d.,]+) km · 업무 ([\d.]+)% · (.+) 생성$/, (_, a, b, c, d) => `${a} trips · ${b} km · ${c}% business · Generated ${d}`],
+  [/^(\d+)건 · 총 ([\d.,]+) km 기록$/, (_, a, b) => `${a} trips · ${b} km total`],
+  [/^미분류 (\d+)건$/, (_, n) => `${n} unclassified`],
+  [/^미분류 운행이 (\d+)건 있어요$/, (_, n) => `${n} trip(s) are unclassified`],
+  [/^※ 미분류 운행 (\d+)건\(([\d.,]+) km\)은 업무 비율 계산에서 제외되어 있어요\.$/, (_, n, k) => `※ ${n} unclassified trip(s) (${k} km) are excluded from the business-use calculation.`],
+  [/^(업무|개인|미분류) ([\d.,]+)km$/, (_, t, k) => `${T(t)} ${k}km`],
+  [/^(\d+)대의 블랙박스를 찾았어요\. 신호가 가장 강한 기기가 내 차량이에요\.$/, (_, n) => `Found ${n} dashcams. The one with the strongest signal is in your car.`],
+  [/^(\d+)명 · 초대 대기 (\d+)명$/, (_, a, b) => `${a} users · ${b} pending`],
+  [/^등록 (\d+)대 · 미배정 (\d+)대$/, (_, a, b) => `${a} registered · ${b} unassigned`],
+  [/^업데이트 필요 차량 전체에 요청 \((\d+)대\)$/, (_, n) => `Request update for all outdated (${n})`],
+  [/^(\d+)분 · (.+)$/, (_, n, q) => `${n} min · ${q}`],
+  [/^SD 카드 (\d+)GB · 사용 (\d+)%$/, (_, g, p) => `SD card ${g}GB · ${p}% used`],
+  [/^(.+) 시동 ON을 감지했어요\. 자동으로 운행을 기록합니다\.$/, (_, c) => `${T(c)} ignition ON detected. Logging your trip automatically.`],
+  [/^(.+) · ([\d.,]+) km\. 업무용인지 개인용인지 선택해 주세요\.$/, (_, r, k) => `${T(r)} · ${k} km. Was it a business or private trip?`],
+  [/^(.+) 출발 · (.+)$/, (_, p, c) => `From ${T(p)} · ${c}`],
+  [/^(\d{1,2}:\d{2}) 출발$/, (_, t) => `Departed ${t}`],
+  [/^v([\d.]+) 변경 사항$/, (_, v) => `What's new in v${v}`],
+  [/^블랙박스가 v([\d.]+)로 다시 시작됐어요\.$/, (_, v) => `The dashcam restarted on v${v}.`],
+  [/^영상 (\d+)개 공유$/, (_, n) => `Share ${n} video(s)`],
+  [/^영상 (\d+)개 저장 후 관리자에게 보고$/, (_, n) => `Save ${n} & report to admin`],
+  [/^영상 (\d+)개가 휴대폰에 저장됐어요\.$/, (_, n) => `${n} video(s) saved to your phone.`],
+  [/^이 운행의 영상 보기 \((\d+)개\)$/, (_, n) => `View this trip's videos (${n})`],
+  [/^블랙박스 Wi-Fi로 영상 (\d+)개를 받는 중이에요\. 차량에서 멀어지지 마세요\.$/, (_, n) => `Receiving ${n} video(s) over the dashcam Wi-Fi. Stay near the car.`],
+  [/^회사 정책 고정 (\d+)개 항목 포함$/, (_, n) => `${n} items locked by company policy`],
+  [/^충격 감지 (.+)$/, (_, g) => `Impact ${g}`],
+  [/^(.+) 영상이 블랙박스 SD 카드에서 삭제돼요\. 삭제 이력은 접근 기록에 남아요\.$/, (_, c) => `The ${T(c)} video will be deleted from the dashcam SD card. The deletion is recorded in the access log.`],
+];
+
 /* ---------------- Boot ---------------- */
+try { S.lang = new URLSearchParams(location.search).get('lang') === 'en' ? 'en' : (localStorage.getItem('fbt_lang') || 'ko'); } catch (e) { S.lang = 'ko'; }
+applyLangMeta();
 STACK = [{ id: 'login' }];
 render();
+trTree(document.body);
 </script>
 </body>
 </html>
