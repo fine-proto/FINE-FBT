@@ -236,9 +236,9 @@ const VEHICLES = [
   { id: 'v3', rego: 'DQP 13S', make: 'Toyota',  model: 'HiLux', year: 2025, own: '소유', fuel: '디젤', userId: 'u1' },
 ];
 const USERS = [
-  { id: 'u1', name: '박서연', email: 'seoyeon.park@fine-logistics.com.au', role: 'admin', status: 'active' },
-  { id: 'u2', name: '김민준', email: 'minjun.kim@fine-logistics.com.au',   role: 'user',  status: 'active' },
-  { id: 'u3', name: '이도윤', email: 'doyun.lee@fine-logistics.com.au',    role: 'user',  status: 'active' },
+  { id: 'u1', name: '박서연', email: 'seoyeon.park@fine-logistics.com.au', phone: '0412 345 678', dept: '경영지원팀', role: 'admin', status: 'active' },
+  { id: 'u2', name: '김민준', email: 'minjun.kim@fine-logistics.com.au', phone: '0423 456 789', dept: '영업팀', role: 'user',  status: 'active' },
+  { id: 'u3', name: '이도윤', email: 'doyun.lee@fine-logistics.com.au', phone: '0434 567 890', dept: '물류팀', role: 'user',  status: 'active' },
   { id: 'u4', name: '최하은', email: 'haeun.choi@fine-logistics.com.au',   role: 'user',  status: 'invited' },
 ];
 
@@ -683,7 +683,11 @@ function renderDemoSide() {
       <div class="flex justify-between"><span class="text-sub">블랙박스</span><b class="text-ink">${S.bb.near ? '근처 (BLE 연결)' : '멀리 있음'}</b></div>
     </div>
     <div class="flex flex-col gap-2">${DemoButtons('side')}</div>
-    <p class="text-[11px] text-sub leading-[16px] px-1">운행 중 1초 = 주행 1분으로 가속돼요.<br/>하차 확인은 3초로 단축했어요.</p>`
+    <p class="text-[11px] text-sub leading-[16px] px-1">운행 중 1초 = 주행 1분으로 가속돼요.<br/>하차 확인은 3초로 단축했어요.</p>
+    <div class="flex flex-col gap-2 pt-3 mt-1 border-t border-line">
+      <span class="text-[12px] font-bold text-sub px-1">권한 전환 · 현재 <b class="text-ink">${S.role === 'admin' ? '관리자' : '일반 사용자'}</b></span>
+      <button onclick="switchRole()" class="h-[52px] w-full rounded-[14px] bg-ink text-white text-[14px] font-bold px-4 flex items-center gap-3 hover:opacity-90">${I.swap('#fff', 18)}<span>${S.role === 'admin' ? '일반 사용자로 전환' : '관리자로 전환'}</span></button>
+    </div>`
     : `<p class="text-[13px] text-sub px-1">로그인하면 사용할 수 있어요.</p>`}`;
 }
 function demoBoard() {
@@ -1011,14 +1015,15 @@ SCREENS.more = () => {
   return `
   ${TabHeader('더보기')}
   <div class="px-6 flex flex-col gap-4">
-    <section class="rounded-[14px] bg-white border border-line px-5 py-[18px] flex items-center gap-4">
-      <span class="w-[52px] h-[52px] rounded-full bg-peach flex items-center justify-center text-[20px] font-black text-brand">${esc(S.me.name[0])}</span>
+    <button onclick="go('profile')" class="rounded-[14px] bg-white border border-line px-5 py-[18px] flex items-center gap-4 text-left">
+      <span class="w-[52px] h-[52px] rounded-full bg-peach flex items-center justify-center text-[20px] font-black text-brand shrink-0">${esc(S.me.name[0])}</span>
       <span class="flex-1 min-w-0 flex flex-col gap-[3px]">
         <span class="flex items-center gap-2"><span class="text-[17px] font-black text-ink">${esc(S.me.name)}</span><span class="text-[11px] px-[7px] py-[2px] rounded-[6px] ${S.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-sub'} font-bold">${S.role === 'admin' ? '관리자' : '일반 사용자'}</span></span>
         <span class="text-[13px] text-sub truncate">${esc(S.me.email)}</span>
-        <span class="text-[12px] text-sub">${COMPANY.name}</span>
+        <span class="text-[12px] text-sub">${COMPANY.name}${S.me.dept ? ' · ' + esc(S.me.dept) : ''}</span>
       </span>
-    </section>
+      ${I.chev()}
+    </button>
 
     <section class="flex flex-col">
       <h2 class="text-[15px] font-bold text-sub pt-2">기기 · 차량</h2>
@@ -1032,14 +1037,78 @@ SCREENS.more = () => {
       ${Row(I.info(), 'FBT 운행일지 안내', '운행일지가 왜 필요한가요?', 'openFbtInfo()')}
     </section>
 
-    <section class="flex flex-col">
+    <!-- 데모: PC 폭에서는 좌측 데모 패널로 이동 -->
+    <section class="demo-inapp flex flex-col">
       <h2 class="text-[15px] font-bold text-sub pt-2">데모</h2>
       ${Row(I.swap(), S.role === 'admin' ? '일반 사용자로 전환' : '관리자로 전환', '권한별 화면을 비교해 보세요', `switchRole()`)}
-      ${Row(I.logout(), '로그아웃', '', "logout()")}
     </section>
     <p class="text-[11px] text-sub text-center pt-2">FINE FBT v0.1 · Prototype</p>
   </div>`;
 };
+/* ---------- 프로필 ---------- */
+let PF = null;
+SCREENS.profile = () => {
+  if (!PF) PF = { name: S.me.name, email: S.me.email, phone: S.me.phone || '' };
+  const v = myVehicle();
+  const inp = (key, label, type = 'text', ph = '') => `<label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">${label}</span><input id="pf_${key}" type="${type}" value="${esc(PF[key])}" oninput="PF.${key}=this.value" placeholder="${ph}" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink placeholder:text-[#A3AAB3]" /></label>`;
+  const ro = (label, val, help = '') => `<div class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">${label}</span><div class="h-[52px] rounded-[14px] bg-chip px-4 flex items-center text-[15px] text-sub">${val}</div>${help ? `<span class="text-[12px] text-sub">${help}</span>` : ''}</div>`;
+  return `
+  ${TopBar('프로필')}
+  <div class="px-6 flex flex-col gap-5 pt-2">
+    <div class="flex flex-col items-center gap-3 pt-1">
+      <span class="relative w-[84px] h-[84px] rounded-full bg-peach flex items-center justify-center text-[32px] font-black text-brand">${esc((PF.name || S.me.name)[0])}
+        <button onclick="toast('사진 변경 (데모)')" class="absolute -bottom-[2px] -right-[2px] w-[30px] h-[30px] rounded-full bg-ink border-2 border-page flex items-center justify-center" aria-label="사진 변경">${I.edit('#fff', 14)}</button>
+      </span>
+      <span class="text-[11px] px-[8px] py-[3px] rounded-[6px] ${S.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-sub'} font-bold">${S.role === 'admin' ? '관리자' : '일반 사용자'}</span>
+    </div>
+    ${inp('name', '이름', 'text', '이름을 입력해 주세요')}
+    ${inp('email', '이메일', 'email', 'name@company.com.au')}
+    ${inp('phone', '휴대폰 번호', 'tel', '04XX XXX XXX')}
+    ${ro('소속 회사', `${esc(COMPANY.name)}${S.me.dept ? ' · ' + esc(S.me.dept) : ''}`, '소속·권한·배정 차량은 관리자가 변경해요.')}
+    ${ro('배정 차량', v ? `${v.make} ${v.model} · ${v.rego}` : '배정된 차량 없음')}
+    ${BtnPrimary('저장', 'saveProfile()')}
+    <div class="flex flex-col gap-1 pt-6 mt-2 border-t border-line">
+      ${Row(I.logout(), '로그아웃', '', 'confirmLogout()')}
+      <button onclick="confirmWithdraw()" class="self-center h-[44px] px-3 text-[13px] font-bold text-sub underline underline-offset-2">회원 탈퇴</button>
+    </div>
+  </div>`;
+};
+function saveProfile() {
+  const name = PF.name.trim(), email = PF.email.trim();
+  if (!name) { toast('이름을 입력해 주세요'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('이메일 형식을 확인해 주세요'); return; }
+  Object.assign(S.me, { name, email, phone: PF.phone.trim() });
+  PF = null; toast('프로필을 저장했어요'); _back();
+}
+function confirmLogout() {
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">로그아웃할까요?</h3>
+    <p class="text-[14px] text-sub leading-[21px]">로그아웃하면 운행이 자동으로 기록되지 않아요. 다시 로그인하면 이어서 기록돼요.</p>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', 'closeSheet()')}${BtnPrimary('로그아웃', 'closeSheet();PF=null;logout()')}</div>
+  </div>`);
+}
+function confirmWithdraw() {
+  const otherAdmins = USERS.filter(u => u.role === 'admin' && u.id !== S.me.id && u.status === 'active');
+  if (S.role === 'admin' && !otherAdmins.length) {
+    openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+      <h3 class="text-[20px] font-black text-ink leading-[28px]">다른 관리자를 지정한 뒤<br/>탈퇴할 수 있어요</h3>
+      <p class="text-[14px] text-sub leading-[21px]">회사의 유일한 관리자예요. 사용자 관리에서 다른 사용자에게 관리자 권한을 준 뒤 다시 시도해 주세요.</p>
+      <div class="grid grid-cols-2 gap-2">${BtnGhost('닫기', 'closeSheet()')}${BtnPrimary('사용자 관리', "closeSheet();PF=null;tab('manage');go('users')")}</div>
+    </div>`);
+    return;
+  }
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">정말 탈퇴할까요?</h3>
+    <ul class="text-[13px] text-sub leading-[20px] list-disc pl-5 flex flex-col gap-1">
+      <li>탈퇴하면 이 계정으로 로그인할 수 없고, 운행이 더 이상 기록되지 않아요.</li>
+      <li>이미 기록된 운행일지와 제출한 보고서는 FBT 신고 자료로 회사에 보관돼요.</li>
+      <li>배정된 차량과 등록된 블랙박스 연결은 해제돼요.</li>
+    </ul>
+    <label class="flex items-center gap-3 py-1 cursor-pointer"><input id="wdAgree" type="checkbox" onchange="$('wdBtn').disabled=!this.checked" class="w-5 h-5 accent-[#D93F3F]" /><span class="text-[14px] font-bold text-ink">안내 내용을 확인했어요</span></label>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', 'closeSheet()')}<button id="wdBtn" disabled onclick="doWithdraw()" class="h-[54px] rounded-[14px] bg-warn text-white text-[16px] font-bold disabled:opacity-40">탈퇴하기</button></div>
+  </div>`);
+}
+function doWithdraw() { closeSheet(); PF = null; logout(); toast('탈퇴 처리됐어요 (데모 · 계정은 유지돼요)'); }
 function switchRole() { stopDrive(); login(S.role === 'admin' ? 'user' : 'admin'); }
 function logout() { stopDrive(); S.role = null; S.me = null; STACK = [{ id: 'login' }]; render(); }
 function stopDrive() { clearInterval(S.drive.timer); clearInterval(S.drive.endTimer); S.drive.state = 'idle'; }
@@ -1295,7 +1364,7 @@ function saveCompany() {
   toast('사업자 정보를 저장했어요'); back();
 }
 const _back = back;
-back = function() { if (cur() === 'company') CO = null; if (cur() === 'vehicleForm') VF = null; _back(); };
+back = function() { if (cur() === 'company') CO = null; if (cur() === 'profile') PF = null; if (cur() === 'vehicleForm') VF = null; _back(); };
 
 /* ---------- 차량 관리 ---------- */
 SCREENS.vehicles = () => `
