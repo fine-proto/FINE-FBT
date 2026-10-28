@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>FINE FBT · 운행일지 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: '#E96E0A',
+          ink: '#20262D',
+          sub: '#626B76',
+          line: '#DDE1E6',
+          page: '#F5F6F8',
+          chip: '#ECEFF3',
+          peach: '#FFF0E4',
+          warn: '#D93F3F',
+          warnbg: '#FDECEC',
+        },
+        fontFamily: {
+          kr: ['"Noto Sans KR"', '"Noto Sans CJK KR"', '"Apple SD Gothic Neo"', '"Malgun Gothic"', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html, body { height: 100%; }
+  body { -webkit-tap-highlight-color: transparent; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+  button { -webkit-tap-highlight-color: transparent; }
+
+  /* ---------- iPhone frame (desktop) ---------- */
+  .device { width: 399px; height: 836px; padding: 12px; border-radius: 60px; background: #111318;
+            box-shadow: 0 30px 80px rgba(17,19,24,.35), inset 0 0 0 2px #2a2d33; }
+  .screen { width: 375px; height: 812px; border-radius: 48px; }
+
+  /* ---------- Full-screen on real phones ---------- */
+  @media (max-width: 440px) {
+    body { background: #F5F6F8 !important; }
+    .stage { padding: 0 !important; min-height: 100%; }
+    .device { width: 100vw; height: 100dvh; padding: 0; border-radius: 0; box-shadow: none; background: transparent; }
+    .screen { width: 100vw; height: 100dvh; border-radius: 0; }
+    .island, .home-indicator-frame { display: none; }
+  }
+
+  /* ---------- Tab bar glass edge ---------- */
+  .glass-edge { position: relative; }
+  .glass-edge::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: linear-gradient(to bottom, #fff 0%, rgba(255,255,255,0) var(--edge-stop, 100%));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; }
+
+  .toast { opacity: 0; transform: translate(-50%, 8px); transition: all .25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .banner { transform: translateY(calc(-100% - 70px)); transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+  .banner.show { transform: translateY(0); }
+
+  .sheet { transform: translateY(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .sheet.open { transform: translateY(0); }
+  .dim { opacity: 0; transition: opacity .25s; }
+  .dim.open { opacity: 1; }
+
+  .fade-in { animation: fadeIn .22s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+  .radar span { position: absolute; inset: 0; border-radius: 9999px; border: 2px solid #E96E0A; opacity: 0; animation: ping 2s ease-out infinite; }
+  .radar span:nth-child(2) { animation-delay: .65s; }
+  .radar span:nth-child(3) { animation-delay: 1.3s; }
+  @keyframes ping { 0% { transform: scale(.35); opacity: .9; } 100% { transform: scale(1.25); opacity: 0; } }
+
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  input, textarea { font-family: inherit; }
+  input:focus, textarea:focus { outline: none; }
+
+  /* report paper table */
+  .rpt th, .rpt td { padding: 6px 4px; border-bottom: 1px solid #ECEFF3; text-align: left; vertical-align: top; }
+  .rpt th { font-weight: 700; color: #626B76; font-size: 10px; background: #F5F6F8; }
+  .rpt td { font-size: 10.5px; color: #20262D; }
+  .rpt .r { text-align: right; }
+</style>
+</head>
+<body class="bg-[#E4E7EC] font-kr">
+<div class="stage min-h-full flex items-center justify-center p-6">
+  <div class="device">
+    <div id="screen" class="screen relative overflow-hidden bg-page">
+
+      <!-- Dynamic Island -->
+      <div class="island absolute top-[11px] left-1/2 -translate-x-1/2 w-[120px] h-[34px] bg-black rounded-full z-[90]"></div>
+
+      <!-- Status bar (fixed) -->
+      <div id="statusbar" class="absolute top-0 inset-x-0 h-[47px] z-[60] bg-page/95 backdrop-blur flex items-center justify-between px-[30px] pt-[3px]">
+        <span class="text-[16px] font-bold text-black tracking-tight">9:41</span>
+        <div class="flex items-center gap-[6px]">
+          <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#000"/><rect x="10" y="3" width="3" height="9" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+          <span class="text-[13px] font-bold text-black">5G</span>
+          <svg width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="#000" opacity=".4"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="24.5" y="4" width="2" height="5" rx="1" fill="#000" opacity=".4"/></svg>
+        </div>
+      </div>
+
+      <!-- Main view (screens are rendered here) -->
+      <div id="view" class="absolute inset-0 overflow-y-auto no-scrollbar pt-[47px] overscroll-contain"></div>
+
+      <!-- Tab bar -->
+      <nav id="tabbar" class="absolute bottom-0 inset-x-0 z-[50] px-3 pt-2 pb-5 pointer-events-none hidden"></nav>
+
+      <!-- Bottom sheet -->
+      <div id="sheetWrap" class="absolute inset-0 z-[70] hidden">
+        <div id="sheetDim" class="dim absolute inset-0 bg-black/40"></div>
+        <div id="sheet" class="sheet absolute bottom-0 inset-x-0 bg-white rounded-t-[24px] max-h-[90%] overflow-y-auto no-scrollbar shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"></div>
+      </div>
+
+      <!-- iOS-style push notification banner -->
+      <div id="banner" class="banner absolute top-[52px] inset-x-[10px] z-[95] rounded-[22px] bg-white/[0.94] backdrop-blur shadow-[0_10px_30px_rgba(0,0,0,0.18)] px-[14px] py-3 flex gap-3 cursor-pointer">
+        <div class="w-[38px] h-[38px] rounded-[10px] bg-brand flex items-center justify-center shrink-0 text-white text-[11px] font-black leading-none text-center">FBT</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between"><span class="text-[13px] font-bold text-ink">FINE FBT</span><span class="text-[12px] text-sub">지금</span></div>
+          <p id="bannerTitle" class="text-[14px] font-bold text-ink leading-[19px] mt-[1px]"></p>
+          <p id="bannerBody" class="text-[13px] text-sub leading-[18px]"></p>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div id="toast" class="toast absolute left-1/2 bottom-[120px] z-[96] bg-ink/90 text-white text-[13px] px-4 py-[10px] rounded-full whitespace-nowrap"></div>
+
+      <!-- Home indicator -->
+      <div class="home-indicator-frame absolute bottom-[8px] left-1/2 -translate-x-1/2 w-[134px] h-[5px] rounded-full bg-black z-[100] pointer-events-none"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   FINE FBT — 블랙박스 기반 자동 운행일지 · FBT(Fringe Benefits Tax) 신고용
+   모든 데이터는 목업(Mock)이며, 블랙박스/차량 BT 연동은 데모 버튼으로 시뮬레이션합니다.
+   ===================================================================== */
+
+/* ---------------- Icons ---------------- */
+const I = {
+  home: c => `<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 3L4 9.33V21h5.5v-7.04h5V21H20V9.33L12 3Z" fill="${c}"/></svg>`,
+  homeO: c => `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5 4.5 9.6V20.5h5v-6.3h5v6.3h5V9.6L12 3.5Z"/></svg>`,
+  route: c => `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8"/></svg>`,
+  doc: c => `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg>`,
+  admin: c => `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h2M14 8h2M8 12h2M14 12h2M10 20.5v-4h4v4"/></svg>`,
+  more: c => `<svg width="24" height="24" viewBox="0 0 24 24" fill="${c}"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>`,
+  back: c => `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>`,
+  chev: (c='#626B76') => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`,
+  car: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l1.6-4.4A2 2 0 0 1 8.5 5.3h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><path d="M6.5 17v2M17.5 17v2"/><circle cx="7.5" cy="14" r="0.8"/><circle cx="16.5" cy="14" r="0.8"/></svg>`,
+  bt: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg>`,
+  cam: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5 21 7.5v9l-5-3"/></svg>`,
+  bell: c => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>`,
+  plus: (c='#fff', s=18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
+  check: (c='#fff', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
+  x: (c='#626B76', s=18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
+  brief: (c='#20262D', s=26) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7M3 12.5h18M11 12.5v2h2v-2"/></svg>`,
+  person: (c='#20262D', s=26) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c0-4 3.4-6.8 7.5-6.8s7.5 2.8 7.5 6.8"/></svg>`,
+  users: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14c2.6.2 4.5 2.4 4.5 5"/></svg>`,
+  building: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h2M14 8h2M8 12h2M14 12h2M10 20.5v-4h4v4"/></svg>`,
+  device: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="3"/><circle cx="15.5" cy="12" r="2.6"/><path d="M6.5 10.5h3M6.5 13.5h2"/></svg>`,
+  info: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>`,
+  swap: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/></svg>`,
+  logout: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H14M10 12h10M17 8.5l3.5 3.5-3.5 3.5"/></svg>`,
+  pdf: (c='#20262D', s=20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 4.5 5-4.5M5 20h14"/></svg>`,
+  send: (c='#fff', s=20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5 10 14M20.5 3.5 14 20.5l-4-6.5-6.5-4 17-6.5Z"/></svg>`,
+  edit: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg>`,
+  power: (c='#20262D', s=18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><path d="M12 3v8M7 6.5a7 7 0 1 0 10 0"/></svg>`,
+};
+
+/* ---------------- Helpers ---------------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+const pad = n => String(n).padStart(2, '0');
+const fmtKm = n => (Math.round(n * 10) / 10).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmtOdo = n => Math.round(n).toLocaleString('en-US');
+const DOW = ['일','월','화','수','목','금','토'];
+function parseD(s) { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function fmtDate(s, withDow = true) { const d = parseD(s); return `${d.getMonth()+1}월 ${d.getDate()}일${withDow ? ` (${DOW[d.getDay()]})` : ''}`; }
+function fmtDot(s) { const d = parseD(s); return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`; }
+function addMin(hm, m) { let [h, mm] = hm.split(':').map(Number); let t = h*60 + mm + Math.round(m); return `${pad(Math.floor(t/60)%24)}:${pad(t%60)}`; }
+function ymLabel(ym) { const [y,m] = ym.split('-'); return `${y}년 ${Number(m)}월`; }
+function rng(seed) { return function() { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+/* ---------------- Mock data ---------------- */
+const TODAY = '2026-10-28';
+const NOW_HM = '14:16';
+
+const COMPANY = { name: 'FINE Logistics Pty Ltd', abn: '51824753556', verified: true, fbtYear: '2026.04.01 ~ 2027.03.31', address: 'George St, Sydney NSW 2000' };
+
+const VEHICLES = [
+  { id: 'v1', rego: 'CXK 41P', make: 'Hyundai', model: 'Tucson', year: 2024, own: '리스', fuel: '하이브리드', userId: 'u2' },
+  { id: 'v2', rego: 'BMV 88R', make: 'Kia',     model: 'Sportage', year: 2023, own: '소유', fuel: '가솔린', userId: 'u3' },
+  { id: 'v3', rego: 'DQP 13S', make: 'Toyota',  model: 'HiLux', year: 2025, own: '소유', fuel: '디젤', userId: 'u1' },
+];
+const USERS = [
+  { id: 'u1', name: '박서연', email: 'seoyeon.park@fine-logistics.com.au', role: 'admin', status: 'active' },
+  { id: 'u2', name: '김민준', email: 'minjun.kim@fine-logistics.com.au',   role: 'user',  status: 'active' },
+  { id: 'u3', name: '이도윤', email: 'doyun.lee@fine-logistics.com.au',    role: 'user',  status: 'active' },
+  { id: 'u4', name: '최하은', email: 'haeun.choi@fine-logistics.com.au',   role: 'user',  status: 'invited' },
+];
+
+const PL = {
+  home:  { n: '자택',                    a: 'Parramatta NSW 2150' },
+  hq:    { n: '본사',                    a: 'George St, Sydney NSW 2000' },
+  cA:    { n: '고객사 · Chatswood',       a: 'Victoria Ave, Chatswood NSW 2067' },
+  site:  { n: '현장 · Macquarie Park',    a: 'Talavera Rd, Macquarie Park NSW 2113' },
+  wh:    { n: '물류센터 · Wetherill Park', a: 'Victoria St, Wetherill Park NSW 2164' },
+  shop:  { n: 'Westfield Parramatta',    a: 'Church St, Parramatta NSW 2150' },
+  beach: { n: 'Bondi Beach',             a: 'Campbell Pde, Bondi Beach NSW 2026' },
+};
+const DIST = { 'home|hq': 23.8, 'hq|cA': 11.2, 'hq|site': 14.6, 'hq|wh': 27.3, 'home|shop': 3.1, 'home|beach': 31.5 };
+const dist = (a, b) => DIST[`${a}|${b}`] ?? DIST[`${b}|${a}`] ?? 10;
+
+const CATS = {
+  business: ['고객 방문', '현장 점검', '회의·미팅', '물품 배송', '기타 업무'],
+  private:  ['출퇴근', '개인 용무', '기타 개인'],
+};
+
+let TRIPS = [];
+(function genTrips() {
+  const R = rng(20261028);
+  let odo = 46120.0, seq = 1;
+  const add = (date, from, to, start, purpose, cat) => {
+    const km = Math.round(dist(from, to) * (1 + (R() - 0.5) * 0.08) * 10) / 10;
+    const mins = km * 1.9 + 6 + R() * 6;
+    TRIPS.push({ id: 't' + (seq++), date, from, to, start, end: addMin(start, mins), km, odoStart: odo, odoEnd: Math.round((odo + km) * 10) / 10, purpose, cat, memo: '' });
+    odo = Math.round((odo + km) * 10) / 10;
+  };
+  const d = new Date(2026, 7, 1), end = parseD(TODAY);
+  while (d <= end) {
+    const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const wd = d.getDay();
+    if (wd >= 1 && wd <= 5) {
+      const m = 30 + Math.floor(R() * 20);
+      add(ds, 'home', 'hq', `07:${pad(m)}`, 'private', '출퇴근');
+      if (ds === TODAY) break;                       // 오늘은 오전 출근까지만 기록됨
+      if (R() < 0.7) {
+        const dest = ['cA', 'site', 'wh'][Math.floor(R() * 3)];
+        const cat = { cA: '고객 방문', site: '현장 점검', wh: '물품 배송' }[dest];
+        add(ds, 'hq', dest, `10:${pad(10 + Math.floor(R() * 40))}`, 'business', cat);
+        add(ds, dest, 'hq', `13:${pad(Math.floor(R() * 50))}`, 'business', cat);
+      }
+      add(ds, 'hq', 'home', `18:${pad(Math.floor(R() * 40))}`, 'private', '출퇴근');
+    } else if (R() < 0.6) {
+      const dest = R() < 0.65 ? 'shop' : 'beach';
+      const h = 10 + Math.floor(R() * 4);
+      add(ds, 'home', dest, `${pad(h)}:${pad(Math.floor(R() * 50))}`, 'private', '개인 용무');
+      add(ds, dest, 'home', `${pad(h + 3)}:${pad(Math.floor(R() * 50))}`, 'private', '개인 용무');
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  // 최근 운행 일부는 아직 목적이 분류되지 않은 상태(미분류)
+  TRIPS.filter(t => t.date === '2026-10-27' && t.start >= '18:00').forEach(t => { t.purpose = null; t.cat = ''; });
+  TRIPS.filter(t => t.date === TODAY).forEach(t => { t.purpose = null; t.cat = ''; });
+})();
+
+// 사용자별 월간 보고서 상태 (목업) — 9월분: 박서연·이도윤 제출 완료, 김민준 제출 대기
+const REPORTS_BY = {};
+function reportsOf(uid) {
+  if (!REPORTS_BY[uid]) REPORTS_BY[uid] = {
+    '2026-08': { st: 'submitted', gen: '2026-09-01', sub: '2026-09-02' },
+    '2026-09': ['u1', 'u3'].includes(uid) ? { st: 'submitted', gen: '2026-10-01', sub: '2026-10-02' } : { st: 'generated', gen: '2026-10-01' },
+    '2026-10': { st: 'progress' },
+  };
+  return REPORTS_BY[uid];
+}
+
+/* ---------------- App state ---------------- */
+const S = {
+  role: null,        // 'user' | 'admin'
+  me: null,
+  device: { registered: true, bb: 'FINE BX-10', bbId: '3A:F2:7C', carBt: 'TUCSON_BT' },
+  drive: { state: 'idle', sec: 0, km: 0, from: 'hq', timer: null, endTimer: null, countdown: 0 },
+  tripMonth: '2026-10',
+  tripFilter: 'all',
+  notif: { start: true, end: true, report: true, unclassified: true },
+};
+const myVehicle = () => VEHICLES.find(v => v.userId === S.me?.id);
+const userById = id => USERS.find(u => u.id === id);
+
+/* ---------------- Toast / Banner ---------------- */
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800); }
+function banner(title, body, onTap) {
+  const b = $('banner'); $('bannerTitle').textContent = title; $('bannerBody').textContent = body;
+  b.onclick = () => { b.classList.remove('show'); onTap && onTap(); };
+  b.classList.add('show'); clearTimeout(b._h); b._h = setTimeout(() => b.classList.remove('show'), 2600);
+}
+
+/* ---------------- Bottom sheet ---------------- */
+function openSheet(html, opts = {}) {
+  const w = $('sheetWrap'), s = $('sheet'), d = $('sheetDim');
+  s.innerHTML = `<div class="flex justify-center pt-[10px] pb-1"><span class="w-9 h-[5px] rounded-full bg-line"></span></div>` + html;
+  w.classList.remove('hidden'); s.scrollTop = 0;
+  requestAnimationFrame(() => { s.classList.add('open'); d.classList.add('open'); });
+  d.onclick = opts.locked ? null : closeSheet;
+}
+function closeSheet() {
+  const w = $('sheetWrap'), s = $('sheet'), d = $('sheetDim');
+  s.classList.remove('open'); d.classList.remove('open');
+  setTimeout(() => { if (!s.classList.contains('open')) w.classList.add('hidden'); }, 300);
+}
+
+/* ---------------- Navigation ---------------- */
+let STACK = [];
+const ROOT_TABS = ['home', 'trips', 'reports', 'manage', 'more'];
+function render(skipScroll) {
+  const top = STACK[STACK.length - 1];
+  const v = $('view');
+  v.innerHTML = `<div class="fade-in">${SCREENS[top.id](top.p || {})}</div>`;
+  v.scrollTop = skipScroll ? (top.scroll || 0) : 0;
+  const isTab = ROOT_TABS.includes(top.id) && STACK.length === 1;
+  $('tabbar').classList.toggle('hidden', !isTab);
+  v.style.paddingBottom = isTab ? '110px' : '24px';
+  if (isTab) renderTabbar(top.id);
+  AFTER[top.id] && AFTER[top.id](top.p || {});
+}
+function tab(id) { STACK = [{ id }]; render(); }
+function go(id, p) { STACK[STACK.length - 1].scroll = $('view').scrollTop; STACK.push({ id, p }); render(); }
+function back() { if (STACK.length > 1) { STACK.pop(); render(true); } }
+function refresh() { STACK[STACK.length - 1].scroll = $('view').scrollTop; render(true); }
+const cur = () => STACK[STACK.length - 1]?.id;
+
+function renderTabbar(active) {
+  const tabs = [
+    { id: 'home', label: '홈', icon: c => active === 'home' ? I.home(c) : I.homeO(c) },
+    { id: 'trips', label: '운행기록', icon: I.route },
+    { id: 'reports', label: '보고서', icon: I.doc },
+    ...(S.role === 'admin' ? [{ id: 'manage', label: '관리', icon: I.admin }] : []),
+    { id: 'more', label: '더보기', icon: I.more },
+  ];
+  $('tabbar').innerHTML = `
+    <div class="glass-edge h-[64px] rounded-full p-[1px] pointer-events-auto shadow-[0_8px_24px_rgba(32,38,45,0.08)]" style="--edge-stop:53%">
+      <div class="h-[62px] rounded-full bg-white/[0.92] backdrop-blur flex items-center px-[3px]">
+        ${tabs.map(t => {
+          const on = t.id === active;
+          return `<button onclick="tab('${t.id}')" class="flex-1 h-[56px] flex items-center justify-center">
+            <span class="${on ? 'bg-[#E5E7EB]/80 ' : ''}w-full max-w-[66px] h-[54px] rounded-full flex flex-col items-center justify-center gap-[2px]">
+              ${t.icon(on ? '#000' : '#626B76')}
+              <span class="text-[10px] ${on ? 'font-black text-ink' : 'font-medium text-sub'}">${t.label}</span>
+            </span>
+          </button>`; }).join('')}
+      </div>
+    </div>`;
+}
+
+/* ---------------- Shared UI pieces ---------------- */
+const TopBar = (title, right = '') => `
+  <header class="h-[52px] flex items-center justify-between px-2 sticky top-0 z-10 bg-page/95 backdrop-blur">
+    <button onclick="back()" class="w-[44px] h-[44px] flex items-center justify-center" aria-label="뒤로">${I.back('#20262D')}</button>
+    <h1 class="text-[17px] font-bold text-ink">${title}</h1>
+    <div class="w-[44px] h-[44px] flex items-center justify-center">${right}</div>
+  </header>`;
+const TabHeader = (title, right = '') => `
+  <header class="flex items-center justify-between px-6 py-[10px]">
+    <h1 class="text-[24px] font-black text-ink leading-[34px]">${title}</h1>
+    ${right}
+  </header>`;
+function PurposeBadge(t, size = 'sm') {
+  const cls = size === 'lg' ? 'text-[12px] px-[9px] py-[3px]' : 'text-[11px] px-[7px] py-[2px]';
+  if (t.purpose === 'business') return `<span class="${cls} rounded-[6px] bg-peach text-brand font-bold whitespace-nowrap">업무</span>`;
+  if (t.purpose === 'private')  return `<span class="${cls} rounded-[6px] bg-chip text-sub font-bold whitespace-nowrap">개인</span>`;
+  return `<span class="${cls} rounded-[6px] bg-warnbg text-warn font-bold whitespace-nowrap">미분류</span>`;
+}
+const BtnPrimary = (label, onclick, extra = '') => `<button onclick="${onclick}" class="w-full h-[54px] rounded-[14px] bg-brand text-white text-[16px] font-bold active:scale-[0.98] transition-transform disabled:bg-[#F3C9A6] ${extra}">${label}</button>`;
+const BtnGhost = (label, onclick, extra = '') => `<button onclick="${onclick}" class="w-full h-[54px] rounded-[14px] bg-chip text-ink text-[16px] font-bold active:scale-[0.98] transition-transform ${extra}">${label}</button>`;
+const Row = (icon, title, sub, onclick, right = '') => `
+  <button onclick="${onclick}" class="w-full flex items-center gap-[16px] py-[18px] border-b border-line last:border-b-0 text-left">
+    <span class="w-6 flex justify-center shrink-0">${icon}</span>
+    <span class="flex-1 min-w-0 flex flex-col gap-[3px]"><span class="text-[16px] font-bold text-ink">${title}</span>${sub ? `<span class="text-[13px] text-sub truncate">${sub}</span>` : ''}</span>
+    ${right}${I.chev()}
+  </button>`;
+
+function TripRow(t, opts = {}) {
+  return `
+  <button onclick="go('tripDetail',{id:'${t.id}'})" class="w-full flex items-center gap-3 py-[14px] ${opts.noBorder ? '' : 'border-b border-line'} text-left">
+    <div class="w-[46px] shrink-0 flex flex-col items-start">
+      <span class="text-[14px] font-bold text-ink leading-[18px]">${t.start}</span>
+      <span class="text-[12px] text-sub leading-[16px]">${t.end}</span>
+    </div>
+    <div class="flex-1 min-w-0 flex flex-col gap-[3px]">
+      <span class="text-[14px] font-bold text-ink truncate">${PL[t.from].n} → ${PL[t.to].n}</span>
+      <span class="text-[12px] text-sub">${opts.showDate ? fmtDate(t.date) + ' · ' : ''}${fmtKm(t.km)} km${t.cat ? ' · ' + t.cat : ''}</span>
+    </div>
+    ${PurposeBadge(t)}
+  </button>`;
+}
+
+function stats(ym) {
+  const list = TRIPS.filter(t => t.date.startsWith(ym));
+  const sum = f => list.filter(f).reduce((a, t) => a + t.km, 0);
+  const total = sum(() => true), biz = sum(t => t.purpose === 'business'), pri = sum(t => t.purpose === 'private'), unc = sum(t => !t.purpose);
+  const uncCount = list.filter(t => !t.purpose).length;
+  const pct = total ? Math.round(biz / total * 1000) / 10 : 0;
+  const odoStart = list.length ? list[0].odoStart : 0, odoEnd = list.length ? list[list.length - 1].odoEnd : 0;
+  return { list, total, biz, pri, unc, uncCount, pct, count: list.length, odoStart, odoEnd };
+}
+
+function MapSvg(seed, h = 180) {
+  const R = rng(seed);
+  const pts = []; let x = 40, y = h - 36;
+  for (let i = 0; i < 6; i++) { pts.push([x, y]); x += 45 + R() * 10; y = Math.max(30, Math.min(h - 30, y - 10 - R() * 40 + (i % 2 ? 22 : 0))); }
+  pts.push([310, 34]);
+  const roads = Array.from({ length: 7 }, (_, i) => `<path d="M${-20 + i * 60} ${h} L${40 + i * 60} 0" stroke="#E3E7EC" stroke-width="7"/>`).join('') +
+                Array.from({ length: 4 }, (_, i) => `<path d="M0 ${30 + i * 45} L343 ${10 + i * 45}" stroke="#E3E7EC" stroke-width="5"/>`).join('');
+  const [sx, sy] = pts[0], [ex, ey] = pts[pts.length - 1];
+  return `<svg viewBox="0 0 343 ${h}" width="100%" height="${h}" class="block" preserveAspectRatio="xMidYMid slice">
+    <rect width="343" height="${h}" fill="#EEF1F4"/>${roads}
+    <path d="M250 ${h} q30 -40 93 -50 v50z" fill="#D7E6F3"/>
+    <polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#E96E0A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${sx}" cy="${sy}" r="7" fill="#fff" stroke="#20262D" stroke-width="3"/>
+    <circle cx="${ex}" cy="${ey}" r="8" fill="#E96E0A" stroke="#fff" stroke-width="3"/>
+  </svg>`;
+}
+
+/* =====================================================================
+   SCREENS
+   ===================================================================== */
+const SCREENS = {}, AFTER = {};
+
+/* ---------- 로그인 ---------- */
+SCREENS.login = () => `
+  <div class="min-h-[765px] flex flex-col px-6 pt-[70px] pb-8">
+    <div class="flex flex-col gap-3">
+      <span class="text-[30px] font-black text-brand tracking-tight leading-none">FINE FBT</span>
+      <p class="text-[26px] font-black text-ink leading-[38px]">타면 기록되고,<br/>월말엔 보고서가<br/>완성돼요.</p>
+      <p class="text-[14px] text-sub leading-[21px]">블랙박스가 운행 시작·종료를 자동으로 인식해<br/>FBT 신고용 운행일지를 만들어 드려요.</p>
+    </div>
+    <div class="flex flex-col gap-3 mt-10">
+      <label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-sub">이메일</span>
+        <input class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink" value="minjun.kim@fine-logistics.com.au" /></label>
+      <label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-sub">비밀번호</span>
+        <input type="password" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink" value="password" /></label>
+    </div>
+    <div class="flex-1"></div>
+    <div class="flex flex-col gap-[10px] mt-8">
+      <p class="text-[12px] text-sub text-center">데모 계정으로 시작하기</p>
+      ${BtnPrimary('일반 사용자로 로그인', "login('user')")}
+      ${BtnGhost('관리자로 로그인', "login('admin')")}
+    </div>
+  </div>`;
+function login(role) {
+  S.role = role;
+  S.me = USERS.find(u => role === 'admin' ? u.id === 'u1' : u.id === 'u2');
+  toast(`${S.me.name}님, 환영합니다`);
+  tab('home');
+}
+
+/* ---------- 홈 ---------- */
+function DriveCard() {
+  const v = myVehicle(), d = S.drive;
+  if (!S.device.registered) return `
+    <section class="rounded-2xl bg-ink px-[25px] py-[20px] flex flex-col gap-[12px]">
+      <p class="text-[12px] font-bold text-[#D8DDE3]">기기 미등록</p>
+      <p class="text-[24px] font-bold text-white leading-[30px]">블랙박스를 등록하면<br/>운행이 자동 기록돼요.</p>
+      <button onclick="go('device')" class="mt-1 h-[46px] rounded-[12px] bg-brand text-white text-[15px] font-bold">기기 등록하기</button>
+    </section>`;
+  if (d.state === 'driving') {
+    const mm = Math.floor(d.sec / 60);
+    return `
+    <section class="rounded-2xl bg-ink px-[25px] pt-[16px] pb-[18px] flex flex-col gap-[10px]">
+      <div class="flex items-center justify-between">
+        <p class="flex items-center gap-[6px] text-[12px] font-bold text-white"><span class="pulse-dot w-2 h-2 rounded-full bg-brand"></span>운행 기록 중</p>
+        <span class="text-[11px] text-[#D8DDE3]">${d.startHm} 출발</span>
+      </div>
+      <div class="flex items-end justify-between">
+        <div class="flex flex-col">
+          <span class="text-[12px] text-[#D8DDE3]">주행 시간</span>
+          <span class="text-[34px] font-black text-white leading-[40px] tabular-nums"><span id="liveTime">${mm}</span><span class="text-[15px] font-bold"> 분</span></span>
+        </div>
+        <div class="flex flex-col items-end">
+          <span class="text-[12px] text-[#D8DDE3]">주행 거리</span>
+          <span class="text-[34px] font-black text-white leading-[40px] tabular-nums"><span id="liveKm">${fmtKm(d.km)}</span><span class="text-[15px] font-bold"> km</span></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 pt-[6px] border-t border-white/10 mt-1">
+        <span class="text-[12px] text-[#D8DDE3] flex-1 truncate pt-[8px]">${PL[d.from].n} 출발 · ${v ? v.model + ' ' + v.rego : ''}</span>
+      </div>
+      <p class="text-[11px] text-[#9AA3AE] leading-[16px]">시동 OFF 또는 차량 BT 연결이 해제되면 하차 여부를 확인해 자동으로 종료돼요.</p>
+    </section>`;
+  }
+  if (d.state === 'ending') return `
+    <section class="rounded-2xl bg-ink px-[25px] py-[18px] flex flex-col gap-[10px]">
+      <p class="flex items-center gap-[6px] text-[12px] font-bold text-white"><span class="w-2 h-2 rounded-full bg-[#9AA3AE]"></span>시동 OFF · 차량 BT 연결 해제됨</p>
+      <p class="text-[24px] font-bold text-white leading-[30px]">하차 여부를<br/>확인하고 있어요…</p>
+      <div class="flex items-center gap-3">
+        <div class="flex-1 h-[6px] rounded-full bg-white/15 overflow-hidden"><div id="endBar" class="h-full bg-brand rounded-full transition-all duration-1000" style="width:${(3 - d.countdown) / 3 * 100}%"></div></div>
+        <span id="endCount" class="text-[13px] font-bold text-white tabular-nums">${d.countdown}초</span>
+      </div>
+      <p class="text-[11px] text-[#9AA3AE] leading-[16px]">실서비스 기준: 시동 OFF 후 일정 시간(예: 3분) 동안 재연결이 없으면 하차로 판단해요. 데모는 3초로 단축했어요.</p>
+    </section>`;
+  return `
+    <section class="rounded-2xl bg-ink px-[25px] pt-[15px] pb-[17px] flex flex-col gap-[9px]">
+      <p class="text-[12px] font-bold text-white">운행 대기</p>
+      <div class="flex items-center gap-3">
+        <div class="flex-1 flex flex-col gap-[10px]">
+          <p class="text-[24px] font-bold text-white leading-[30px]">차량에 타면<br/>자동으로 기록해요.</p>
+          <p class="text-[12px] text-[#D8DDE3]">시동 ON 시 운행 기록이 시작돼요.</p>
+        </div>
+        <div class="relative w-[96px] h-[74px] shrink-0">
+          <svg width="90" height="74" viewBox="0 0 90 74" fill="none" class="absolute" style="left:4px;top:2px">
+            <path fill-rule="evenodd" d="M55.56 16h-2.66v15.33h13.41a.33.33 0 0 0 .31-.45l-3.92-10.01A7.67 7.67 0 0 0 55.56 16ZM27.02 31.33h23V16h-9.48a7.67 7.67 0 0 0-6.46 3.54L26.8 30.93a.26.26 0 0 0 .22.4Z" fill="#fff"/>
+            <path fill-rule="evenodd" d="M73.5 38.04a6.71 6.71 0 0 0-6.71-6.71H27.5C21.15 31.33 16 36.48 16 42.83v1.92a3.83 3.83 0 0 0 3.83 3.83h.92a7.77 7.77 0 0 1 15.42 0h17.16a7.77 7.77 0 0 1 15.42 0h.91a3.83 3.83 0 0 0 3.84-3.83v-6.71Z" fill="#D8DDE3"/>
+            <path d="M64.41 42.54a7.75 7.75 0 1 0-6.74 14 7.75 7.75 0 0 0 6.74-14Zm-32.58 0a7.75 7.75 0 1 0-6.74 14 7.75 7.75 0 0 0 6.74-14Z" fill="#828282"/>
+          </svg>
+        </div>
+      </div>
+      <div class="flex items-center gap-[14px] pt-[6px]">
+        <span class="flex items-center gap-[5px] text-[12px] text-[#D8DDE3]">${I.cam('#D8DDE3', 14)}블랙박스 대기</span>
+        <span class="flex items-center gap-[5px] text-[12px] text-[#D8DDE3]">${I.bt('#D8DDE3', 14)}${esc(S.device.carBt)}</span>
+      </div>
+    </section>`;
+}
+
+SCREENS.home = () => {
+  const v = myVehicle(), st = stats('2026-10'), d = S.drive;
+  const unc = TRIPS.filter(t => !t.purpose);
+  const recent = TRIPS.slice(-3).reverse();
+  const connected = d.state === 'driving';
+  return `
+  <header class="flex items-center justify-between px-6 py-[10px]">
+    <h1 class="text-[21px] font-black text-brand leading-[28px] tracking-tight">FINE FBT</h1>
+    <button onclick="toast('알림 목록 (데모)')" class="relative w-[44px] h-[44px] rounded-full flex items-center justify-center" aria-label="알림">
+      ${I.bell('#20262D')}<span class="absolute top-[8px] right-[7px] w-2 h-2 rounded-full bg-brand"></span>
+    </button>
+  </header>
+  <main class="px-6 pt-3 pb-[10px] flex flex-col gap-4">
+    <p class="text-[26px] font-black text-ink leading-[38px]">${esc(S.me.name)}님,<br/>오늘도 안전 운행하세요.</p>
+
+    <section class="flex items-center justify-between">
+      <button onclick="go('deviceManage')" class="flex items-center gap-[10px]">
+        ${I.car('#626B76')}
+        <span class="text-[14px] font-bold text-ink">${v ? `${v.model} · ${v.rego}` : '배정된 차량 없음'}</span>
+      </button>
+      <span class="h-[30px] px-[10px] inline-flex items-center gap-[6px] rounded-[6px] ${connected ? 'bg-peach text-brand' : 'bg-chip text-sub'} border ${connected ? 'border-[#F8D3B4]' : 'border-line'} text-[12px] font-bold">
+        ${I.bt(connected ? '#E96E0A' : '#626B76', 13)}${connected ? '차량 연결됨' : S.device.registered ? '연결 대기' : '미등록'}
+      </span>
+    </section>
+
+    <div id="driveCard">${DriveCard()}</div>
+
+    ${unc.length ? `
+    <button onclick="openPurposeSheet('${unc[0].id}')" class="rounded-[14px] bg-white border border-line px-5 py-4 flex items-center gap-3 text-left">
+      <span class="w-[34px] h-[34px] rounded-full bg-warnbg flex items-center justify-center text-warn text-[15px] font-black shrink-0">${unc.length}</span>
+      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">목적 선택이 필요한 운행이 있어요</span><span class="text-[12px] text-sub">미분류 운행은 보고서 제출 전에 분류해 주세요.</span></span>
+      ${I.chev()}
+    </button>` : ''}
+
+    <section class="flex flex-col gap-4 pt-[10px]">
+      <div class="flex items-center justify-between">
+        <h2 class="text-[19px] font-bold text-ink">10월 운행 현황</h2>
+        <button onclick="tab('reports')" class="text-[13px] font-bold text-ink underline underline-offset-2">운행일지 보고서</button>
+      </div>
+      <div class="rounded-[14px] bg-peach px-5 py-[22px] flex flex-col gap-4">
+        <div class="flex items-center gap-3">
+          <div class="flex-1 flex flex-col gap-[6px]">
+            <span class="text-[11px] font-bold text-ink">업무 사용 비율 (Business use)</span>
+            <span class="text-[18px] font-black text-ink">이번 달 업무 운행 비율</span>
+            <span class="text-[14px] text-sub">${st.count}건 · 총 ${fmtKm(st.total)} km 기록</span>
+          </div>
+          <div class="flex flex-col items-end">
+            <span class="text-[46px] font-black text-ink leading-[54px]">${Math.round(st.pct)}</span>
+            <span class="text-[13px] font-medium text-ink">%</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="h-[10px] rounded-full bg-white overflow-hidden flex">
+            <div class="h-full bg-brand" style="width:${st.biz / st.total * 100}%"></div>
+            <div class="h-full bg-[#C3C9D1]" style="width:${st.pri / st.total * 100}%"></div>
+            <div class="h-full bg-[#F2A3A3]" style="width:${st.unc / st.total * 100}%"></div>
+          </div>
+          <div class="flex items-center gap-[14px] text-[12px] text-sub">
+            <span class="flex items-center gap-[5px]"><i class="w-2 h-2 rounded-full bg-brand"></i>업무 ${fmtKm(st.biz)}km</span>
+            <span class="flex items-center gap-[5px]"><i class="w-2 h-2 rounded-full bg-[#C3C9D1]"></i>개인 ${fmtKm(st.pri)}km</span>
+            ${st.unc ? `<span class="flex items-center gap-[5px]"><i class="w-2 h-2 rounded-full bg-[#F2A3A3]"></i>미분류 ${fmtKm(st.unc)}km</span>` : ''}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="flex flex-col pt-[10px]">
+      <div class="flex items-center justify-between pb-1">
+        <h2 class="text-[19px] font-bold text-ink">최근 운행</h2>
+        <button onclick="tab('trips')" class="text-[13px] font-bold text-ink underline underline-offset-2">전체보기</button>
+      </div>
+      ${recent.map((t, i) => TripRow(t, { showDate: true, noBorder: i === recent.length - 1 })).join('')}
+    </section>
+
+    ${S.role === 'admin' ? `
+    <section class="flex flex-col gap-3 pt-[10px]">
+      <h2 class="text-[19px] font-bold text-ink">회사 현황</h2>
+      <button onclick="tab('manage')" class="rounded-[14px] bg-white border border-line px-5 py-[18px] grid grid-cols-3 text-left">
+        <span class="flex flex-col gap-1"><span class="text-[12px] text-sub">등록 차량</span><span class="text-[20px] font-black text-ink">${VEHICLES.length}<span class="text-[13px] font-bold">대</span></span></span>
+        <span class="flex flex-col gap-1 border-l border-line pl-4"><span class="text-[12px] text-sub">사용자</span><span class="text-[20px] font-black text-ink">${USERS.length}<span class="text-[13px] font-bold">명</span></span></span>
+        <span class="flex flex-col gap-1 border-l border-line pl-4"><span class="text-[12px] text-sub">9월 제출</span><span class="text-[20px] font-black text-ink">${submitCount()}<span class="text-[13px] font-bold">/${activeDrivers().length}</span></span></span>
+      </button>
+    </section>` : ''}
+
+    <!-- 데모 시나리오 (프로토타입 전용) -->
+    <section class="flex flex-col gap-2 pt-6 pb-2">
+      <p class="text-[11px] font-bold text-sub text-center">데모 시나리오 · 블랙박스/차량 BT 이벤트 재현</p>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="demoBoard()" class="h-[46px] rounded-[12px] border border-line bg-white text-[13px] font-bold text-ink ${d.state !== 'idle' || !S.device.registered ? 'opacity-40 pointer-events-none' : ''}">🚗 탑승 · 시동 ON</button>
+        <button onclick="demoAlight()" class="h-[46px] rounded-[12px] border border-line bg-white text-[13px] font-bold text-ink ${d.state !== 'driving' ? 'opacity-40 pointer-events-none' : ''}">🔑 시동 OFF · 하차</button>
+      </div>
+    </section>
+  </main>`;
+};
+
+/* ---------- 운행 시뮬레이션 ---------- */
+function refreshDriveUi() {
+  if (cur() === 'home' && STACK.length === 1) refresh();
+}
+function demoBoard() {
+  const d = S.drive;
+  const last = TRIPS[TRIPS.length - 1];
+  d.from = last ? last.to : 'hq';
+  d.state = 'driving'; d.sec = 0; d.km = 0; d.startHm = NOW_HM;
+  banner('차량 연결됨 · 운행 기록 시작', `${myVehicle()?.model || '차량'} 시동 ON을 감지했어요. 자동으로 운행을 기록합니다.`);
+  refreshDriveUi();
+  clearInterval(d.timer);
+  d.timer = setInterval(() => {
+    // 데모 가속: 실제 1초 = 주행 1분
+    d.sec += 60; d.km += 0.55 + Math.random() * 0.25;
+    const t = $('liveTime'), k = $('liveKm');
+    if (t) t.textContent = Math.floor(d.sec / 60);
+    if (k) k.textContent = fmtKm(d.km);
+  }, 1000);
+}
+function demoAlight() {
+  const d = S.drive;
+  clearInterval(d.timer);
+  d.state = 'ending'; d.countdown = 3;
+  refreshDriveUi();
+  clearInterval(d.endTimer);
+  d.endTimer = setInterval(() => {
+    d.countdown--;
+    const c = $('endCount'), b = $('endBar');
+    if (c) c.textContent = d.countdown + '초';
+    if (b) b.style.width = ((3 - d.countdown) / 3 * 100) + '%';
+    if (d.countdown <= 0) { clearInterval(d.endTimer); finishTrip(); }
+  }, 1000);
+}
+function finishTrip() {
+  const d = S.drive;
+  const km = Math.max(1.2, Math.round(d.km * 10) / 10);
+  const to = d.from === 'hq' ? 'cA' : 'hq';
+  const last = TRIPS[TRIPS.length - 1];
+  const odo = last ? last.odoEnd : 48000;
+  const t = { id: 't' + (TRIPS.length + 1000), date: TODAY, from: d.from, to, start: d.startHm, end: addMin(d.startHm, Math.max(1, d.sec / 60)), km, odoStart: odo, odoEnd: Math.round((odo + km) * 10) / 10, purpose: null, cat: '', memo: '', fresh: true };
+  TRIPS.push(t);
+  d.state = 'idle';
+  refreshDriveUi();
+  banner('운행이 종료되었어요', `${PL[t.from].n} → ${PL[t.to].n} · ${fmtKm(km)} km. 업무용인지 개인용인지 선택해 주세요.`, () => openPurposeSheet(t.id, { auto: true }));
+  setTimeout(() => openPurposeSheet(t.id, { auto: true }), 700);
+}
+
+/* ---------- 운행 목적 선택 시트 ---------- */
+let PS = null;   // { id, purpose, cat, auto }
+function openPurposeSheet(id, opts = {}) {
+  const t = TRIPS.find(x => x.id === id);
+  PS = { id, purpose: t.purpose, cat: t.cat, auto: !!opts.auto, memo: t.memo || '' };
+  drawPurposeSheet();
+}
+function drawPurposeSheet() {
+  const t = TRIPS.find(x => x.id === PS.id);
+  const opt = (key, label, desc, icon) => {
+    const on = PS.purpose === key;
+    return `<button onclick="psPick('${key}')" class="flex-1 rounded-[16px] border-2 ${on ? 'border-brand bg-peach' : 'border-line bg-white'} px-4 py-[18px] flex flex-col items-start gap-[10px] text-left transition-colors">
+      <span class="w-[44px] h-[44px] rounded-[12px] ${on ? 'bg-brand' : 'bg-chip'} flex items-center justify-center">${icon(on ? '#fff' : '#20262D', 24)}</span>
+      <span class="flex flex-col gap-[2px]"><span class="text-[17px] font-black ${on ? 'text-brand' : 'text-ink'}">${label}</span><span class="text-[12px] text-sub leading-[16px]">${desc}</span></span>
+    </button>`;
+  };
+  const cats = PS.purpose ? CATS[PS.purpose] : [];
+  openSheet(`
+    <div class="px-6 pt-2 pb-8 flex flex-col gap-5">
+      <div class="flex items-start justify-between">
+        <div class="flex flex-col gap-1">
+          <span class="text-[13px] font-bold text-brand">${PS.auto ? '운행 종료' : t.purpose ? '운행 목적 변경' : '운행 목적 선택'}</span>
+          <h3 class="text-[22px] font-black text-ink leading-[30px]">이번 운행은<br/>어떤 목적이었나요?</h3>
+        </div>
+        ${PS.auto ? '' : `<button onclick="closeSheet()" class="w-9 h-9 rounded-full bg-chip flex items-center justify-center">${I.x()}</button>`}
+      </div>
+      <div class="rounded-[14px] bg-page px-4 py-[14px] flex flex-col gap-[6px]">
+        <div class="flex items-center justify-between"><span class="text-[13px] text-sub">${fmtDate(t.date)} · ${t.start}–${t.end}</span><span class="text-[14px] font-black text-ink">${fmtKm(t.km)} km</span></div>
+        <span class="text-[15px] font-bold text-ink">${PL[t.from].n} → ${PL[t.to].n}</span>
+        <span class="text-[12px] text-sub">주행거리계 ${fmtOdo(t.odoStart)} → ${fmtOdo(t.odoEnd)} km</span>
+      </div>
+      <div class="flex gap-3">
+        ${opt('business', '업무용', '고객 방문, 배송 등<br/>업무 목적 운행', I.brief)}
+        ${opt('private', '개인용', '출퇴근, 개인 용무 등<br/>사적 사용', I.person)}
+      </div>
+      ${PS.purpose ? `
+      <div class="flex flex-col gap-[10px] fade-in">
+        <span class="text-[13px] font-bold text-ink">세부 목적</span>
+        <div class="flex flex-wrap gap-2">
+          ${cats.map(c => `<button onclick="psCat('${c}')" class="h-[36px] px-[14px] rounded-full text-[13px] font-bold border ${PS.cat === c ? 'bg-ink text-white border-ink' : 'bg-white text-ink border-line'}">${c}</button>`).join('')}
+        </div>
+        ${PS.purpose === 'private' ? `<p class="text-[12px] text-sub leading-[17px] bg-page rounded-[10px] px-3 py-[10px]">자택↔근무지 출퇴근은 FBT 기준 개인(사적) 사용으로 분류돼요.</p>` : ''}
+        <input id="psMemo" value="${esc(PS.memo)}" oninput="PS.memo=this.value" placeholder="메모 (선택) · 예: ○○사 납품 미팅" class="h-[48px] rounded-[12px] bg-white border border-line px-4 text-[14px] text-ink placeholder:text-[#A3AAB3]" />
+      </div>` : ''}
+      <div class="flex flex-col gap-2 pt-1">
+        <button onclick="psSave()" ${PS.purpose ? '' : 'disabled'} class="w-full h-[54px] rounded-[14px] bg-brand text-white text-[16px] font-bold disabled:bg-[#F3C9A6]">저장</button>
+        ${PS.auto ? `<button onclick="psLater()" class="h-[44px] text-[14px] font-bold text-sub">나중에 선택</button>` : ''}
+      </div>
+    </div>`, { locked: PS.auto });
+}
+function psPick(p) { if (PS.purpose !== p) PS.cat = ''; PS.purpose = p; if (!PS.cat) PS.cat = CATS[p][0]; keepMemo(); redrawSheet(); }
+function psCat(c) { PS.cat = c; keepMemo(); redrawSheet(); }
+function keepMemo() { const m = $('psMemo'); if (m) PS.memo = m.value; }
+function redrawSheet() { const sc = $('sheet').scrollTop; drawPurposeSheet(); $('sheet').scrollTop = sc; }
+function psSave() {
+  keepMemo();
+  const t = TRIPS.find(x => x.id === PS.id);
+  t.purpose = PS.purpose; t.cat = PS.cat; t.memo = PS.memo; delete t.fresh;
+  closeSheet();
+  toast(`${PS.purpose === 'business' ? '업무용' : '개인용'} 운행으로 저장했어요`);
+  PS = null; refresh();
+}
+function psLater() { closeSheet(); toast('미분류로 저장했어요. 운행기록에서 언제든 선택할 수 있어요'); PS = null; refresh(); }
+
+/* ---------- 운행기록 ---------- */
+SCREENS.trips = () => {
+  const ym = S.tripMonth, st = stats(ym);
+  const months = ['2026-08', '2026-09', '2026-10'];
+  const mi = months.indexOf(ym);
+  const f = S.tripFilter;
+  const list = st.list.filter(t => f === 'all' ? true : f === 'none' ? !t.purpose : t.purpose === f).slice().reverse();
+  const byDate = {};
+  list.forEach(t => (byDate[t.date] = byDate[t.date] || []).push(t));
+  const chip = (key, label, n) => `<button onclick="S.tripFilter='${key}';refresh()" class="h-[34px] px-[14px] rounded-full text-[13px] font-bold whitespace-nowrap ${f === key ? 'bg-ink text-white' : 'bg-white text-ink border border-line'}">${label}${n != null ? ` <span class="${f === key ? 'text-white/70' : 'text-sub'}">${n}</span>` : ''}</button>`;
+  return `
+  ${TabHeader('운행기록')}
+  <div class="px-6 flex flex-col gap-4">
+    <div class="flex items-center justify-between">
+      <button onclick="S.tripMonth='${months[mi - 1] || ym}';S.tripFilter='all';refresh()" class="w-9 h-9 rounded-full flex items-center justify-center ${mi === 0 ? 'opacity-30 pointer-events-none' : ''}">${I.back('#20262D')}</button>
+      <span class="text-[17px] font-bold text-ink">${ymLabel(ym)}</span>
+      <button onclick="S.tripMonth='${months[mi + 1] || ym}';S.tripFilter='all';refresh()" class="w-9 h-9 rounded-full flex items-center justify-center rotate-180 ${mi === months.length - 1 ? 'opacity-30 pointer-events-none' : ''}">${I.back('#20262D')}</button>
+    </div>
+    <div class="rounded-[14px] bg-white border border-line grid grid-cols-3 py-4">
+      <div class="flex flex-col items-center gap-1"><span class="text-[12px] text-sub">총 주행</span><span class="text-[17px] font-black text-ink">${fmtKm(st.total)}<span class="text-[12px] font-bold"> km</span></span></div>
+      <div class="flex flex-col items-center gap-1 border-l border-line"><span class="text-[12px] text-sub">업무</span><span class="text-[17px] font-black text-brand">${fmtKm(st.biz)}<span class="text-[12px] font-bold"> km</span></span></div>
+      <div class="flex flex-col items-center gap-1 border-l border-line"><span class="text-[12px] text-sub">개인</span><span class="text-[17px] font-black text-ink">${fmtKm(st.pri)}<span class="text-[12px] font-bold"> km</span></span></div>
+    </div>
+    <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-6 px-6">
+      ${chip('all', '전체', st.count)}${chip('business', '업무')}${chip('private', '개인')}${chip('none', '미분류', st.uncCount)}
+    </div>
+    <div class="flex flex-col">
+      ${Object.keys(byDate).length ? Object.entries(byDate).map(([date, ts]) => `
+        <div class="pt-3">
+          <div class="flex items-center justify-between pb-1">
+            <span class="text-[13px] font-bold text-sub">${fmtDate(date)}</span>
+            <span class="text-[12px] text-sub">${fmtKm(ts.reduce((a, t) => a + t.km, 0))} km</span>
+          </div>
+          ${ts.map((t, i) => TripRow(t, { noBorder: i === ts.length - 1 })).join('')}
+        </div>`).join('') : `<div class="py-16 text-center text-[14px] text-sub">해당하는 운행 기록이 없어요.</div>`}
+    </div>
+  </div>`;
+};
+
+/* ---------- 운행 상세 ---------- */
+SCREENS.tripDetail = ({ id }) => {
+  const t = TRIPS.find(x => x.id === id), v = myVehicle();
+  const info = (k, val) => `<div class="flex items-start justify-between py-[13px] border-b border-line last:border-b-0 gap-4"><span class="text-[14px] text-sub shrink-0">${k}</span><span class="text-[14px] font-bold text-ink text-right">${val}</span></div>`;
+  return `
+  ${TopBar('운행 상세')}
+  <div class="px-6 flex flex-col gap-4 pt-1">
+    <div class="flex flex-col gap-1">
+      <span class="text-[13px] text-sub">${fmtDate(t.date)} · ${t.start}–${t.end}</span>
+      <span class="text-[22px] font-black text-ink leading-[30px]">${PL[t.from].n} → ${PL[t.to].n}</span>
+    </div>
+    <div class="rounded-[14px] overflow-hidden border border-line">${MapSvg(Number(t.id.replace(/\D/g, '')) * 7 + 3)}</div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="rounded-[14px] bg-white border border-line px-4 py-[14px] flex flex-col gap-1"><span class="text-[12px] text-sub">주행 거리</span><span class="text-[22px] font-black text-ink">${fmtKm(t.km)}<span class="text-[13px] font-bold"> km</span></span></div>
+      <div class="rounded-[14px] bg-white border border-line px-4 py-[14px] flex flex-col gap-1"><span class="text-[12px] text-sub">주행 시간</span><span class="text-[22px] font-black text-ink">${(() => { const [a, b] = [t.start, t.end].map(s => s.split(':').map(Number)); return (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]); })()}<span class="text-[13px] font-bold"> 분</span></span></div>
+    </div>
+
+    <button onclick="openPurposeSheet('${t.id}')" class="rounded-[14px] ${t.purpose ? 'bg-peach' : 'bg-warnbg'} px-5 py-4 flex items-center gap-3 text-left">
+      <span class="flex-1 flex flex-col gap-[4px]">
+        <span class="text-[12px] font-bold ${t.purpose ? 'text-brand' : 'text-warn'}">운행 목적</span>
+        <span class="text-[17px] font-black text-ink">${t.purpose === 'business' ? '업무용' : t.purpose === 'private' ? '개인용' : '아직 선택하지 않았어요'}${t.cat ? ` · ${t.cat}` : ''}</span>
+        ${t.memo ? `<span class="text-[13px] text-sub">${esc(t.memo)}</span>` : ''}
+      </span>
+      <span class="h-[32px] px-3 rounded-full bg-white text-[13px] font-bold text-ink flex items-center gap-1">${I.edit('#20262D', 14)}${t.purpose ? '변경' : '선택'}</span>
+    </button>
+
+    <div class="rounded-[14px] bg-white border border-line px-5">
+      ${info('출발', `${PL[t.from].n}<br/><span class="text-[12px] font-normal text-sub">${PL[t.from].a}</span>`)}
+      ${info('도착', `${PL[t.to].n}<br/><span class="text-[12px] font-normal text-sub">${PL[t.to].a}</span>`)}
+      ${info('주행거리계 (시작)', `${fmtOdo(t.odoStart)} km`)}
+      ${info('주행거리계 (종료)', `${fmtOdo(t.odoEnd)} km`)}
+      ${info('운전자', esc(S.me.name))}
+      ${info('차량', v ? `${v.make} ${v.model} · ${v.rego}` : '-')}
+      ${info('기록 방식', '블랙박스 자동 감지')}
+    </div>
+  </div>`;
+};
+
+/* ---------- 보고서 ---------- */
+SCREENS.reports = () => {
+  const cur = stats('2026-10');
+  const past = ['2026-09', '2026-08'];
+  const stBadge = st => st === 'submitted'
+    ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-chip text-sub font-bold">제출 완료</span>`
+    : `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-brand text-white font-bold">제출 대기</span>`;
+  return `
+  ${TabHeader('운행일지 보고서')}
+  <div class="px-6 flex flex-col gap-4">
+    <section class="rounded-2xl bg-ink px-[25px] pt-[16px] pb-[18px] flex flex-col gap-[12px]">
+      <div class="flex items-center justify-between">
+        <p class="text-[12px] font-bold text-white">2026년 10월 · 작성 중</p>
+        <span class="text-[11px] text-[#D8DDE3]">11월 1일 자동 생성</span>
+      </div>
+      <p class="text-[24px] font-bold text-white leading-[30px]">이번 달 운행일지가<br/>자동으로 쌓이고 있어요.</p>
+      <div class="grid grid-cols-3 gap-2 pt-1">
+        <div class="flex flex-col"><span class="text-[11px] text-[#9AA3AE]">운행</span><span class="text-[18px] font-black text-white">${cur.count}건</span></div>
+        <div class="flex flex-col"><span class="text-[11px] text-[#9AA3AE]">총 거리</span><span class="text-[18px] font-black text-white">${Math.round(cur.total)}km</span></div>
+        <div class="flex flex-col"><span class="text-[11px] text-[#9AA3AE]">업무 비율</span><span class="text-[18px] font-black text-brand">${cur.pct}%</span></div>
+      </div>
+      ${cur.uncCount ? `<button onclick="S.tripMonth='2026-10';S.tripFilter='none';tab('trips')" class="rounded-[10px] bg-white/10 px-3 py-[10px] flex items-center justify-between text-left"><span class="text-[13px] text-white"><b class="text-[#FFB27A]">미분류 ${cur.uncCount}건</b> · 목적을 선택해 주세요</span>${I.chev('#D8DDE3')}</button>` : ''}
+      <button onclick="go('reportView',{ym:'2026-10'})" class="flex items-center justify-between pt-[4px]">
+        <span class="text-[15px] font-bold text-white">중간 미리보기</span>
+        <span class="w-[30px] h-[30px] rounded-full bg-white flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E96E0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </button>
+    </section>
+
+    <section class="flex flex-col pt-[10px]">
+      <h2 class="text-[19px] font-bold text-ink pb-1">지난 보고서</h2>
+      ${past.map(ym => { const s = stats(ym), r = reportsOf(S.me.id)[ym]; return `
+        <button onclick="go('reportView',{ym:'${ym}'})" class="w-full flex items-center gap-[16px] py-[18px] border-b border-line last:border-b-0 text-left">
+          <span class="w-6 flex justify-center shrink-0">${I.doc('#20262D')}</span>
+          <span class="flex-1 flex flex-col gap-[3px]">
+            <span class="flex items-center gap-2"><span class="text-[16px] font-bold text-ink">${ymLabel(ym)} 운행일지</span>${stBadge(r.st)}</span>
+            <span class="text-[13px] text-sub">${s.count}건 · ${fmtKm(s.total)} km · 업무 ${s.pct}% · ${fmtDot(r.gen)} 생성</span>
+          </span>${I.chev()}
+        </button>`; }).join('')}
+    </section>
+
+    <section class="rounded-[14px] bg-white border border-line px-5 py-4 flex gap-3 mt-2">
+      <span class="shrink-0 pt-[1px]">${I.info('#626B76', 20)}</span>
+      <p class="text-[12px] text-sub leading-[18px]">보고서는 매월 1일 전월 운행 기록으로 자동 생성되며, 확인 후 관리자에게 제출하면 FBT 신고 자료로 활용돼요. FBT 연도: ${COMPANY.fbtYear}</p>
+    </section>
+  </div>`;
+};
+
+/* ---------- 보고서 미리보기 ---------- */
+SCREENS.reportView = ({ ym }) => {
+  const s = stats(ym), r = reportsOf(S.me.id)[ym], v = myVehicle();
+  const isCur = r.st === 'progress';
+  const kv = (k, val) => `<div class="flex justify-between py-[5px] text-[11px]"><span class="text-sub">${k}</span><span class="font-bold text-ink text-right">${val}</span></div>`;
+  return `
+  ${TopBar(`${ymLabel(ym)} 운행일지`)}
+  <div class="px-4 flex flex-col gap-4 pt-1">
+    <div class="flex items-center justify-between px-2">
+      <span class="text-[13px] text-sub">${isCur ? '10월 1일 ~ 오늘 기준 중간 집계' : `${fmtDot(r.gen)} 자동 생성`}</span>
+      ${r.st === 'submitted' ? `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-chip text-sub font-bold">제출 완료 · ${fmtDot(r.sub)}</span>`
+        : isCur ? `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-peach text-brand font-bold">작성 중</span>`
+        : `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-brand text-white font-bold">제출 대기</span>`}
+    </div>
+
+    <!-- 보고서 문서(종이) -->
+    <article class="bg-white rounded-[6px] shadow-[0_6px_24px_rgba(32,38,45,0.10)] px-4 py-5 flex flex-col gap-4">
+      <div class="flex items-start justify-between border-b-2 border-ink pb-3">
+        <div class="flex flex-col">
+          <span class="text-[10px] font-bold text-brand tracking-wider">FBT CAR LOGBOOK</span>
+          <span class="text-[17px] font-black text-ink leading-[24px]">차량 운행일지</span>
+          <span class="text-[11px] text-sub">${ymLabel(ym)} (${ym}-01 ~ ${isCur ? TODAY : ym + '-' + new Date(+ym.slice(0,4), +ym.slice(5), 0).getDate()})</span>
+        </div>
+        <span class="text-[13px] font-black text-brand">FINE FBT</span>
+      </div>
+      <div class="grid grid-cols-2 gap-x-4">
+        <div>${kv('회사명', COMPANY.name)}${kv('ABN', fmtAbn(COMPANY.abn))}${kv('운전자', esc(S.me.name))}</div>
+        <div>${kv('차량', v ? `${v.make} ${v.model}` : '-')}${kv('등록번호', v ? v.rego : '-')}${kv('소유 형태', v ? v.own : '-')}</div>
+      </div>
+      <div class="rounded-[8px] bg-page px-3 py-3 grid grid-cols-2 gap-y-[2px] gap-x-4">
+        ${kv('기간 시작 주행거리계', fmtOdo(s.odoStart) + ' km')}${kv('기간 종료 주행거리계', fmtOdo(s.odoEnd) + ' km')}
+        ${kv('총 주행거리', fmtKm(s.total) + ' km')}${kv('업무 주행거리', fmtKm(s.biz) + ' km')}
+        ${kv('개인 주행거리', fmtKm(s.pri) + ' km')}${kv('업무 사용 비율', `<span class="text-brand">${s.pct}%</span>`)}
+      </div>
+      ${s.uncCount ? `<p class="text-[11px] text-warn font-bold">※ 미분류 운행 ${s.uncCount}건(${fmtKm(s.unc)} km)은 업무 비율 계산에서 제외되어 있어요.</p>` : ''}
+      <div class="-mx-1 overflow-x-auto no-scrollbar">
+        <table class="rpt w-full border-collapse">
+          <thead><tr><th>일자</th><th>출발→도착</th><th class="r">시작/종료<br/>주행거리계</th><th class="r">km</th><th>목적</th></tr></thead>
+          <tbody>
+            ${s.list.map(t => `<tr${!t.purpose ? ' style="background:#FDECEC"' : ''}>
+              <td class="whitespace-nowrap">${t.date.slice(5).replace('-', '/')}<br/><span class="text-sub">${t.start}</span></td>
+              <td>${PL[t.from].n.split(' · ')[0]}→${PL[t.to].n.split(' · ')[0]}</td>
+              <td class="r whitespace-nowrap">${fmtOdo(t.odoStart)}<br/>${fmtOdo(t.odoEnd)}</td>
+              <td class="r">${fmtKm(t.km)}</td>
+              <td>${t.purpose === 'business' ? `<b class="text-brand">업무</b>` : t.purpose === 'private' ? '개인' : '<b class="text-warn">미분류</b>'}<br/><span class="text-sub">${t.cat || ''}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-between items-end pt-2 border-t border-line">
+        <span class="text-[10px] text-sub leading-[15px]">블랙박스 시동·BT 연결 이벤트 기반 자동 기록<br/>생성: FINE FBT</span>
+        <span class="text-[11px] text-ink">운전자 서명 <span class="inline-block w-[70px] border-b border-ink ml-1"></span></span>
+      </div>
+    </article>
+
+    <div class="flex flex-col gap-2 pt-2">
+      ${r.st === 'generated' ? BtnPrimary(`${I.send('#fff', 18).replace('<svg', '<svg style="display:inline;vertical-align:-3px;margin-right:6px"')}관리자에게 제출`, `submitReport('${ym}')`) : ''}
+      ${r.st === 'progress' ? `<p class="text-[12px] text-sub text-center pb-1">10월 보고서는 11월 1일에 자동 생성된 후 제출할 수 있어요.</p>` : ''}
+      ${BtnGhost('PDF로 내보내기', "toast('PDF 파일로 저장했어요 (데모)')")}
+    </div>
+  </div>`;
+};
+function submitReport(ym) {
+  const s = stats(ym);
+  if (s.uncCount) {
+    openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+      <h3 class="text-[20px] font-black text-ink">미분류 운행이 ${s.uncCount}건 있어요</h3>
+      <p class="text-[14px] text-sub">모든 운행의 목적을 선택해야 보고서를 제출할 수 있어요.</p>
+      ${BtnPrimary('분류하러 가기', `closeSheet();S.tripMonth='${ym}';S.tripFilter='none';tab('trips')`)}
+    </div>`);
+    return;
+  }
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink leading-[28px]">${ymLabel(ym)} 운행일지를<br/>제출할까요?</h3>
+    <div class="rounded-[14px] bg-page px-4 py-3 flex flex-col gap-1 text-[14px]">
+      <div class="flex justify-between"><span class="text-sub">운행</span><b class="text-ink">${s.count}건</b></div>
+      <div class="flex justify-between"><span class="text-sub">총 주행거리</span><b class="text-ink">${fmtKm(s.total)} km</b></div>
+      <div class="flex justify-between"><span class="text-sub">업무 사용 비율</span><b class="text-brand">${s.pct}%</b></div>
+    </div>
+    <p class="text-[12px] text-sub">제출 후에는 관리자 승인 없이 수정할 수 없어요.</p>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', 'closeSheet()')}${BtnPrimary('제출하기', `doSubmit('${ym}')`)}</div>
+  </div>`);
+}
+function doSubmit(ym) { reportsOf(S.me.id)[ym].st = 'submitted'; reportsOf(S.me.id)[ym].sub = TODAY; closeSheet(); toast('관리자에게 보고서를 제출했어요'); refresh(); }
+
+/* ---------- 더보기 ---------- */
+SCREENS.more = () => {
+  const v = myVehicle();
+  return `
+  ${TabHeader('더보기')}
+  <div class="px-6 flex flex-col gap-4">
+    <section class="rounded-[14px] bg-white border border-line px-5 py-[18px] flex items-center gap-4">
+      <span class="w-[52px] h-[52px] rounded-full bg-peach flex items-center justify-center text-[20px] font-black text-brand">${esc(S.me.name[0])}</span>
+      <span class="flex-1 min-w-0 flex flex-col gap-[3px]">
+        <span class="flex items-center gap-2"><span class="text-[17px] font-black text-ink">${esc(S.me.name)}</span><span class="text-[11px] px-[7px] py-[2px] rounded-[6px] ${S.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-sub'} font-bold">${S.role === 'admin' ? '관리자' : '일반 사용자'}</span></span>
+        <span class="text-[13px] text-sub truncate">${esc(S.me.email)}</span>
+        <span class="text-[12px] text-sub">${COMPANY.name}</span>
+      </span>
+    </section>
+
+    <section class="flex flex-col">
+      <h2 class="text-[15px] font-bold text-sub pt-2">기기 · 차량</h2>
+      ${Row(I.device(), '기기 등록 · 관리', S.device.registered ? `${S.device.bb} · ${S.device.carBt}` : '등록된 기기가 없어요', "go('deviceManage')", S.device.registered ? '' : `<span class="w-2 h-2 rounded-full bg-brand mr-1"></span>`)}
+      ${Row(I.car(), '내 차량', v ? `${v.make} ${v.model} · ${v.rego}` : '관리자에게 차량 배정을 요청하세요', "toast('차량 배정은 관리자가 설정해요')")}
+    </section>
+
+    <section class="flex flex-col">
+      <h2 class="text-[15px] font-bold text-sub pt-2">설정</h2>
+      ${Row(I.bell('#20262D'), '알림 설정', '운행 시작·종료, 미분류, 보고서 알림', 'openNotifSheet()')}
+      ${Row(I.info(), 'FBT 운행일지 안내', '운행일지가 왜 필요한가요?', 'openFbtInfo()')}
+    </section>
+
+    <section class="flex flex-col">
+      <h2 class="text-[15px] font-bold text-sub pt-2">데모</h2>
+      ${Row(I.swap(), S.role === 'admin' ? '일반 사용자로 전환' : '관리자로 전환', '권한별 화면을 비교해 보세요', `switchRole()`)}
+      ${Row(I.logout(), '로그아웃', '', "logout()")}
+    </section>
+    <p class="text-[11px] text-sub text-center pt-2">FINE FBT v0.1 · Prototype</p>
+  </div>`;
+};
+function switchRole() { stopDrive(); login(S.role === 'admin' ? 'user' : 'admin'); }
+function logout() { stopDrive(); S.role = null; S.me = null; STACK = [{ id: 'login' }]; render(); }
+function stopDrive() { clearInterval(S.drive.timer); clearInterval(S.drive.endTimer); S.drive.state = 'idle'; }
+function openNotifSheet() {
+  const tg = (key, label, desc) => `
+    <div class="flex items-center gap-3 py-4 border-b border-line last:border-b-0">
+      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${label}</span><span class="text-[12px] text-sub">${desc}</span></span>
+      <button onclick="S.notif.${key}=!S.notif.${key};openNotifSheet()" class="w-[51px] h-[31px] rounded-full p-[2px] transition-colors ${S.notif[key] ? 'bg-brand' : 'bg-[#D3D7DD]'}">
+        <span class="block w-[27px] h-[27px] rounded-full bg-white shadow transition-transform ${S.notif[key] ? 'translate-x-[20px]' : ''}"></span>
+      </button>
+    </div>`;
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-2">
+    <h3 class="text-[20px] font-black text-ink pb-2">알림 설정</h3>
+    ${tg('start', '운행 시작 알림', '시동 ON 감지 시 기록 시작을 알려요')}
+    ${tg('end', '운행 종료 · 목적 선택 알림', '하차 판단 후 업무/개인 선택을 요청해요')}
+    ${tg('unclassified', '미분류 운행 리마인드', '매일 저녁 8시, 미분류 운행이 있으면 알려요')}
+    ${tg('report', '월간 보고서 알림', '매월 1일 보고서 생성 시 알려요')}
+  </div>`);
+}
+function openFbtInfo() {
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">FBT 운행일지 안내</h3>
+    <div class="flex flex-col gap-3 text-[14px] text-ink leading-[22px]">
+      <p><b>FBT(Fringe Benefits Tax)</b>는 호주에서 회사가 직원에게 제공한 복리후생에 대해 <b>회사가 부담</b>하는 세금이에요.</p>
+      <p>법인 명의로 소유·리스한 차량을 직원(주주·임직원 포함)이 <b>업무 외 개인 용도</b>로 쓸 수 있게 하면 FBT 대상이 될 수 있어요.</p>
+      <p>운행일지로 <b>업무 사용 비율</b>을 입증하면 과세 대상 금액 산정에 활용할 수 있어요. FINE FBT는 운행마다 업무/개인을 기록해 이 비율을 자동으로 계산해요.</p>
+      <p class="text-[12px] text-sub">※ 세부 신고 기준은 회사의 세무 담당자 또는 ATO 안내를 확인해 주세요.</p>
+    </div>
+    ${BtnGhost('닫기', 'closeSheet()')}
+  </div>`);
+}
+
+/* ---------- 기기 관리 ---------- */
+SCREENS.deviceManage = () => {
+  const v = myVehicle(), d = S.device;
+  if (!d.registered) return `
+    ${TopBar('기기 관리')}
+    <div class="px-6 pt-10 flex flex-col items-center gap-4 text-center">
+      <span class="w-[72px] h-[72px] rounded-full bg-peach flex items-center justify-center">${I.device('#E96E0A', 34)}</span>
+      <p class="text-[20px] font-black text-ink leading-[28px]">등록된 블랙박스가 없어요</p>
+      <p class="text-[14px] text-sub leading-[21px]">블랙박스와 차량 블루투스를 등록하면<br/>탑승·하차를 자동으로 인식해요.</p>
+      <div class="w-full pt-4">${BtnPrimary('기기 등록하기', "go('device')")}</div>
+    </div>`;
+  const item = (icon, title, sub, badge) => `
+    <div class="flex items-center gap-4 py-4 border-b border-line last:border-b-0">
+      <span class="w-[42px] h-[42px] rounded-[12px] bg-chip flex items-center justify-center shrink-0">${icon}</span>
+      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${title}</span><span class="text-[12px] text-sub">${sub}</span></span>
+      ${badge}
+    </div>`;
+  const ok = `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-peach text-brand font-bold">등록됨</span>`;
+  return `
+  ${TopBar('기기 관리')}
+  <div class="px-6 flex flex-col gap-4 pt-1">
+    <section class="rounded-[14px] bg-white border border-line px-5">
+      ${item(I.device('#20262D', 22), d.bb, `블랙박스 · ${d.bbId} · BT/Wi-Fi 동글`, ok)}
+      ${item(I.bt('#20262D', 20), d.carBt, '차량 블루투스(핸즈프리)', ok)}
+      ${item(I.car('#20262D', 22), v ? `${v.make} ${v.model}` : '배정 차량 없음', v ? `${v.rego} · ${v.own}` : '관리자에게 요청하세요', v ? ok : '')}
+    </section>
+    <section class="rounded-[14px] bg-page border border-line px-5 py-4 flex flex-col gap-2">
+      <span class="text-[13px] font-bold text-ink">자동 기록 동작 방식</span>
+      <ol class="text-[12px] text-sub leading-[19px] list-decimal pl-4">
+        <li>차량 탑승 시 차량 BT·블랙박스 연결을 감지해 앱이 자동 실행돼요.</li>
+        <li>시동 ON 이벤트로 운행 기록을 시작해요.</li>
+        <li>시동 OFF 또는 BT 해제 후 일정 시간이 지나면 하차로 판단해요.</li>
+        <li>저장 전 업무용/개인용 목적을 선택해요.</li>
+      </ol>
+    </section>
+    <div class="flex flex-col gap-2 pt-2">
+      ${BtnGhost('다른 기기로 다시 등록', "go('device')")}
+      <button onclick="unregister()" class="h-[44px] text-[14px] font-bold text-warn">기기 등록 해제</button>
+    </div>
+  </div>`;
+};
+function unregister() {
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">기기 등록을 해제할까요?</h3>
+    <p class="text-[14px] text-sub">해제하면 운행이 자동으로 기록되지 않아요. 기존 운행 기록은 유지돼요.</p>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', 'closeSheet()')}<button onclick="S.device.registered=false;stopDrive();closeSheet();toast('기기 등록을 해제했어요');refresh()" class="h-[54px] rounded-[14px] bg-warn text-white text-[16px] font-bold">해제</button></div>
+  </div>`);
+}
+
+/* ---------- 기기 등록 플로우 ---------- */
+const DR = { step: 1, scanning: false, found: [], bb: null, carBt: null, vehicleId: null, perms: { loc: true, bt: true, bg: true } };
+SCREENS.device = () => {
+  const steps = ['블랙박스', '차량 BT', '차량', '권한'];
+  const prog = `<div class="flex gap-[6px] px-6">${steps.map((s, i) => `<div class="flex-1 flex flex-col gap-[6px]"><div class="h-[4px] rounded-full ${i < DR.step ? 'bg-brand' : 'bg-line'}"></div><span class="text-[11px] ${i + 1 === DR.step ? 'font-bold text-ink' : 'text-sub'}">${s}</span></div>`).join('')}</div>`;
+  let body = '';
+  if (DR.step === 1) {
+    body = `
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">${DR.scanning ? '블랙박스를 찾고 있어요' : '연결할 블랙박스를<br/>선택해 주세요'}</h2><p class="text-[14px] text-sub">${DR.scanning ? '블랙박스 전원을 켜고 휴대폰을 가까이 두세요.' : `${DR.found.length}대의 블랙박스를 찾았어요. 신호가 가장 강한 기기가 내 차량이에요.`}</p></div>
+      ${DR.scanning ? `
+      <div class="flex justify-center py-6"><div class="radar relative w-[160px] h-[160px]"><span></span><span></span><span></span>
+        <div class="absolute inset-[52px] rounded-full bg-brand flex items-center justify-center">${I.device('#fff', 26)}</div></div></div>
+      <p class="text-center text-[13px] text-sub">BT/Wi-Fi 동글 검색 중…</p>` : `
+      <div class="flex flex-col">
+        ${DR.found.map(f => `<button onclick="DR.bb='${f.id}';refresh()" class="flex items-center gap-4 py-4 border-b border-line last:border-b-0 text-left">
+          <span class="w-[42px] h-[42px] rounded-[12px] ${DR.bb === f.id ? 'bg-brand' : 'bg-chip'} flex items-center justify-center">${I.device(DR.bb === f.id ? '#fff' : '#20262D')}</span>
+          <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${f.name}</span><span class="text-[12px] text-sub">${f.id} · 신호 ${f.rssi}</span></span>
+          <span class="w-[22px] h-[22px] rounded-full border-2 ${DR.bb === f.id ? 'border-brand bg-brand' : 'border-line'} flex items-center justify-center">${DR.bb === f.id ? I.check('#fff', 12) : ''}</span>
+        </button>`).join('')}
+      </div>
+      <button onclick="drScan()" class="text-[13px] font-bold text-ink underline underline-offset-2 self-center">다시 검색</button>`}`;
+  } else if (DR.step === 2) {
+    const bts = [{ n: 'TUCSON_BT', d: '최근 연결 · 차량 핸즈프리' }, { n: 'HILUX-AUDIO', d: '차량 핸즈프리' }, { n: 'Galaxy Buds2', d: '오디오 기기' }];
+    body = `
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">차량 블루투스를<br/>선택해 주세요</h2><p class="text-[14px] text-sub">휴대폰과 페어링된 차량 핸즈프리를 선택하면 탑승을 더 정확히 인식해요.</p></div>
+      <div class="flex flex-col">
+        ${bts.map(b => `<button onclick="DR.carBt='${b.n}';refresh()" class="flex items-center gap-4 py-4 border-b border-line last:border-b-0 text-left">
+          <span class="w-[42px] h-[42px] rounded-[12px] ${DR.carBt === b.n ? 'bg-brand' : 'bg-chip'} flex items-center justify-center">${I.bt(DR.carBt === b.n ? '#fff' : '#20262D', 20)}</span>
+          <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${b.n}</span><span class="text-[12px] text-sub">${b.d}</span></span>
+          <span class="w-[22px] h-[22px] rounded-full border-2 ${DR.carBt === b.n ? 'border-brand bg-brand' : 'border-line'} flex items-center justify-center">${DR.carBt === b.n ? I.check('#fff', 12) : ''}</span>
+        </button>`).join('')}
+      </div>
+      <p class="text-[12px] text-sub">목록에 없다면 휴대폰 설정 › 블루투스에서 차량과 먼저 페어링해 주세요.</p>`;
+  } else if (DR.step === 3) {
+    const mine = VEHICLES.filter(v => v.userId === S.me.id);
+    body = `
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">연결할 차량을<br/>확인해 주세요</h2><p class="text-[14px] text-sub">관리자가 배정한 회사 차량이에요.</p></div>
+      ${mine.length ? `<div class="flex flex-col gap-2">${mine.map(v => `<button onclick="DR.vehicleId='${v.id}';refresh()" class="rounded-[14px] border-2 ${DR.vehicleId === v.id ? 'border-brand bg-peach' : 'border-line bg-white'} px-4 py-4 flex items-center gap-4 text-left">
+          ${I.car(DR.vehicleId === v.id ? '#E96E0A' : '#20262D', 28)}
+          <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[16px] font-bold text-ink">${v.make} ${v.model} · ${v.year}</span><span class="text-[13px] text-sub">${v.rego} · ${v.own} · ${v.fuel}</span></span>
+        </button>`).join('')}</div>`
+      : `<div class="rounded-[14px] bg-warnbg px-4 py-4 text-[14px] text-warn font-bold">배정된 차량이 없어요. 관리자에게 차량 배정을 요청해 주세요.</div>`}`;
+  } else {
+    const tg = (key, label, desc) => `
+      <div class="flex items-center gap-3 py-4 border-b border-line last:border-b-0">
+        <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${label}</span><span class="text-[12px] text-sub">${desc}</span></span>
+        <button onclick="DR.perms.${key}=!DR.perms.${key};refresh()" class="w-[51px] h-[31px] rounded-full p-[2px] ${DR.perms[key] ? 'bg-brand' : 'bg-[#D3D7DD]'}"><span class="block w-[27px] h-[27px] rounded-full bg-white shadow transition-transform ${DR.perms[key] ? 'translate-x-[20px]' : ''}"></span></button>
+      </div>`;
+    body = `
+      <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">자동 기록을 위한<br/>권한을 허용해 주세요</h2><p class="text-[14px] text-sub">앱을 열지 않아도 운행을 기록하려면 필요해요.</p></div>
+      <div class="rounded-[14px] bg-white border border-line px-5">
+        ${tg('loc', '위치 · 항상 허용', '출발·도착 위치와 주행 경로 기록')}
+        ${tg('bt', '블루투스', '블랙박스·차량 BT 연결 감지')}
+        ${tg('bg', '백그라운드 실행', '탑승 시 앱 자동 실행')}
+      </div>`;
+  }
+  const can = DR.step === 1 ? DR.bb && !DR.scanning : DR.step === 2 ? !!DR.carBt : DR.step === 3 ? !!DR.vehicleId : (DR.perms.loc && DR.perms.bt && DR.perms.bg);
+  return `
+  ${TopBar('기기 등록')}
+  ${prog}
+  <div class="px-6 pt-6 flex flex-col gap-5 min-h-[560px]">${body}</div>
+  <div class="px-6 pt-4 pb-2">
+    <button onclick="drNext()" ${can ? '' : 'disabled'} class="w-full h-[54px] rounded-[14px] bg-brand text-white text-[16px] font-bold disabled:bg-[#F3C9A6]">${DR.step === 4 ? '등록 완료' : '다음'}</button>
+    ${DR.step === 4 && !can ? `<p class="text-[12px] text-sub text-center pt-2">자동 기록을 위해 모든 권한이 필요해요.</p>` : ''}
+  </div>`;
+};
+AFTER.device = () => { if (DR.step === 1 && !DR.found.length && !DR.scanning) drScan(); };
+function drScan() {
+  DR.scanning = true; DR.found = []; DR.bb = null; refresh();
+  setTimeout(() => {
+    DR.scanning = false;
+    DR.found = [{ id: '3A:F2:7C', name: 'FINE BX-10', rssi: '강함' }, { id: '7C:11:90', name: 'FINE BX-10', rssi: '약함' }];
+    if (cur() === 'device') refresh();
+  }, 1600);
+}
+function drNext() {
+  if (DR.step === 1) { toast('블랙박스와 연결했어요'); DR.step = 2; if (!DR.carBt) DR.carBt = S.device.carBt; }
+  else if (DR.step === 2) { DR.step = 3; DR.vehicleId = myVehicle()?.id || null; }
+  else if (DR.step === 3) DR.step = 4;
+  else {
+    const f = DR.found.find(x => x.id === DR.bb);
+    S.device = { registered: true, bb: f ? f.name : 'FINE BX-10', bbId: DR.bb, carBt: DR.carBt };
+    Object.assign(DR, { step: 1, found: [], bb: null, scanning: false });
+    toast('기기 등록이 완료됐어요');
+    STACK = [{ id: 'home' }]; render(); return;
+  }
+  refresh();
+}
+// 기기 등록 진입 시 항상 1단계부터
+const _go = go;
+go = function(id, p) { if (id === 'device') Object.assign(DR, { step: 1, found: [], bb: null, scanning: false }); _go(id, p); };
+
+/* =====================================================================
+   ADMIN
+   ===================================================================== */
+const activeDrivers = () => USERS.filter(u => u.status === 'active' && VEHICLES.some(v => v.userId === u.id));
+function submitStatus(u) { return reportsOf(u.id)['2026-09'].st; }
+function submitCount() { return activeDrivers().filter(u => submitStatus(u) === 'submitted').length; }
+function fmtAbn(a) { const d = String(a).replace(/\D/g, ''); return [d.slice(0, 2), d.slice(2, 5), d.slice(5, 8), d.slice(8, 11)].filter(Boolean).join(' '); }
+function validAbn(a) {
+  const d = String(a).replace(/\D/g, '');
+  if (d.length !== 11) return false;
+  const w = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+  const n = d.split('').map(Number); n[0] -= 1;
+  return n.reduce((s, x, i) => s + x * w[i], 0) % 89 === 0;
+}
+
+SCREENS.manage = () => `
+  ${TabHeader('관리')}
+  <div class="px-6 flex flex-col gap-4">
+    <section class="rounded-2xl bg-ink px-[25px] pt-[16px] pb-[18px] flex flex-col gap-[10px]">
+      <div class="flex items-center justify-between">
+        <p class="text-[12px] font-bold text-white">사업자 정보</p>
+        ${COMPANY.verified ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-brand text-white font-bold">ABN 확인됨</span>` : `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-warn text-white font-bold">미확인</span>`}
+      </div>
+      <p class="text-[22px] font-bold text-white leading-[28px]">${esc(COMPANY.name)}</p>
+      <p class="text-[13px] text-[#D8DDE3]">ABN ${fmtAbn(COMPANY.abn)} · FBT 연도 ${COMPANY.fbtYear}</p>
+      <button onclick="go('company')" class="flex items-center justify-between pt-[6px]">
+        <span class="text-[15px] font-bold text-white">사업자 정보 수정</span>
+        <span class="w-[30px] h-[30px] rounded-full bg-white flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E96E0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </button>
+    </section>
+
+    <section class="flex flex-col">
+      ${Row(I.car(), '차량 관리', `등록 ${VEHICLES.length}대 · 미배정 ${VEHICLES.filter(v => !v.userId).length}대`, "go('vehicles')")}
+      ${Row(I.users(), '사용자 관리', `${USERS.length}명 · 초대 대기 ${USERS.filter(u => u.status === 'invited').length}명`, "go('users')")}
+    </section>
+
+    <section class="flex flex-col gap-2 pt-[10px]">
+      <div class="flex items-center justify-between"><h2 class="text-[19px] font-bold text-ink">9월 운행일지 제출 현황</h2><span class="text-[13px] font-bold text-sub">${submitCount()}/${activeDrivers().length}</span></div>
+      <div class="rounded-[14px] bg-white border border-line px-5">
+        ${activeDrivers().map(u => { const st = submitStatus(u), v = VEHICLES.find(x => x.userId === u.id); return `
+          <div class="flex items-center gap-3 py-[14px] border-b border-line last:border-b-0">
+            <span class="w-9 h-9 rounded-full bg-chip flex items-center justify-center text-[14px] font-black text-ink">${u.name[0]}</span>
+            <span class="flex-1 flex flex-col"><span class="text-[15px] font-bold text-ink">${u.name}${u.id === S.me.id ? ' (나)' : ''}</span><span class="text-[12px] text-sub">${v ? v.model + ' · ' + v.rego : '-'}</span></span>
+            ${st === 'submitted' ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-chip text-sub font-bold">제출 완료</span>`
+              : `<button onclick="toast('${u.name}님에게 제출 요청 알림을 보냈어요')" class="text-[12px] h-[28px] px-[10px] rounded-[8px] bg-peach text-brand font-bold">제출 요청</button>`}
+          </div>`; }).join('')}
+      </div>
+    </section>
+  </div>`;
+
+/* ---------- 사업자 정보 ---------- */
+let CO = null;
+SCREENS.company = () => {
+  if (!CO) CO = { name: COMPANY.name, abn: fmtAbn(COMPANY.abn), checked: validAbn(COMPANY.abn) ? 'ok' : null };
+  const field = (label, inner, help = '') => `<label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">${label}</span>${inner}${help}</label>`;
+  return `
+  ${TopBar('사업자 정보')}
+  <div class="px-6 flex flex-col gap-5 pt-2">
+    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">사업자 정보를<br/>확인해 주세요</h2><p class="text-[14px] text-sub">운행일지 보고서와 FBT 신고 자료에 표기돼요.</p></div>
+    ${field('회사명 (법인명)', `<input id="coName" value="${esc(CO.name)}" oninput="CO.name=this.value" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink" />`)}
+    ${field('사업자 등록번호 (ABN)', `
+      <div class="flex gap-2">
+        <input id="coAbn" inputmode="numeric" value="${esc(CO.abn)}" oninput="abnInput(this)" placeholder="00 000 000 000" class="flex-1 min-w-0 h-[52px] rounded-[14px] bg-white border ${CO.checked === 'bad' ? 'border-warn' : 'border-line'} px-4 text-[15px] text-ink tracking-wide" />
+        <button onclick="abnCheck()" class="h-[52px] px-4 rounded-[14px] bg-ink text-white text-[14px] font-bold shrink-0">확인</button>
+      </div>`,
+      `<span id="abnMsg" class="text-[12px] ${CO.checked === 'ok' ? 'text-brand' : CO.checked === 'bad' ? 'text-warn' : 'text-sub'} font-bold">${CO.checked === 'ok' ? '✓ 유효한 ABN이에요' : CO.checked === 'bad' ? '유효하지 않은 ABN이에요. 11자리를 다시 확인해 주세요.' : '11자리 숫자를 입력하고 확인을 눌러 주세요.'}</span>`)}
+    ${field('FBT 연도', `<div class="h-[52px] rounded-[14px] bg-chip px-4 flex items-center text-[15px] text-sub">${COMPANY.fbtYear}</div>`, `<span class="text-[12px] text-sub">FBT 연도는 매년 4월 1일 ~ 다음 해 3월 31일이에요.</span>`)}
+    ${field('사업장 주소', `<input value="${esc(COMPANY.address)}" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink" />`)}
+    <div class="pt-4">${BtnPrimary('저장', 'saveCompany()')}</div>
+  </div>`;
+};
+function abnInput(el) { const d = el.value.replace(/\D/g, '').slice(0, 11); el.value = fmtAbn(d); CO.abn = el.value; CO.checked = null; const m = $('abnMsg'); if (m) { m.className = 'text-[12px] text-sub font-bold'; m.textContent = '11자리 숫자를 입력하고 확인을 눌러 주세요.'; } el.classList.remove('border-warn'); }
+function abnCheck() { CO.name = $('coName').value; CO.checked = validAbn(CO.abn) ? 'ok' : 'bad'; refresh(); toast(CO.checked === 'ok' ? 'ABN 조회 완료 (데모)' : 'ABN 형식이 올바르지 않아요'); }
+function saveCompany() {
+  CO.name = $('coName').value.trim();
+  if (!CO.name) { toast('회사명을 입력해 주세요'); return; }
+  if (CO.checked !== 'ok') { CO.checked = validAbn(CO.abn) ? 'ok' : 'bad'; if (CO.checked !== 'ok') { refresh(); toast('ABN을 확인해 주세요'); return; } }
+  COMPANY.name = CO.name; COMPANY.abn = CO.abn.replace(/\D/g, ''); COMPANY.verified = true; CO = null;
+  toast('사업자 정보를 저장했어요'); back();
+}
+const _back = back;
+back = function() { if (cur() === 'company') CO = null; if (cur() === 'vehicleForm') VF = null; _back(); };
+
+/* ---------- 차량 관리 ---------- */
+SCREENS.vehicles = () => `
+  ${TopBar('차량 관리', `<button onclick="go('vehicleForm')" class="w-9 h-9 rounded-full bg-brand flex items-center justify-center" aria-label="차량 등록">${I.plus('#fff', 18)}</button>`)}
+  <div class="px-6 flex flex-col gap-3 pt-1">
+    <p class="text-[14px] text-sub">회사 명의로 소유하거나 리스한 차량을 등록하고 사용자에게 배정하세요.</p>
+    ${VEHICLES.map(v => { const u = userById(v.userId); return `
+      <button onclick="openVehicleSheet('${v.id}')" class="rounded-[14px] bg-white border border-line px-4 py-4 flex items-center gap-4 text-left">
+        <span class="w-[46px] h-[46px] rounded-[12px] bg-chip flex items-center justify-center shrink-0">${I.car('#20262D', 26)}</span>
+        <span class="flex-1 min-w-0 flex flex-col gap-[3px]">
+          <span class="flex items-center gap-2"><span class="text-[16px] font-bold text-ink">${esc(v.rego)}</span><span class="text-[11px] px-[6px] py-[1px] rounded-[5px] bg-chip text-sub font-bold">${v.own}</span></span>
+          <span class="text-[13px] text-sub">${esc(v.make)} ${esc(v.model)} · ${v.year} · ${v.fuel}</span>
+          <span class="text-[12px] ${u ? 'text-ink' : 'text-brand'} font-bold">${u ? `배정: ${u.name}` : '미배정'}</span>
+        </span>${I.chev()}
+      </button>`; }).join('')}
+    <button onclick="go('vehicleForm')" class="h-[54px] rounded-[14px] border-2 border-dashed border-line text-[15px] font-bold text-sub flex items-center justify-center gap-2 mt-1">${I.plus('#626B76', 16)}차량 등록</button>
+  </div>`;
+
+let VF = null;
+SCREENS.vehicleForm = () => {
+  if (!VF) VF = { rego: '', make: '', model: '', year: '2025', own: '소유', fuel: '가솔린', userId: '' };
+  const inp = (key, label, ph) => `<label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">${label}</span><input value="${esc(VF[key])}" oninput="VF.${key}=this.value" placeholder="${ph}" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink placeholder:text-[#A3AAB3]" /></label>`;
+  const seg = (key, label, opts) => `<div class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">${label}</span><div class="flex gap-2">${opts.map(o => `<button onclick="VF.${key}='${o}';refresh()" class="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold ${VF[key] === o ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${o}</button>`).join('')}</div></div>`;
+  const drivers = USERS.filter(u => u.status === 'active');
+  return `
+  ${TopBar('차량 등록')}
+  <div class="px-6 flex flex-col gap-5 pt-2">
+    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">회사 차량 정보를<br/>입력해 주세요</h2></div>
+    ${inp('rego', '차량 등록번호 (Rego)', '예: ABC 12D')}
+    <div class="grid grid-cols-2 gap-3">${inp('make', '제조사', '예: Toyota')}${inp('model', '모델', '예: RAV4')}</div>
+    ${inp('year', '연식', '예: 2025')}
+    ${seg('own', '소유 형태', ['소유', '리스'])}
+    ${seg('fuel', '연료', ['가솔린', '디젤', '하이브리드', '전기'])}
+    <div class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">배정 사용자</span>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="VF.userId='';refresh()" class="h-[36px] px-[14px] rounded-full text-[13px] font-bold ${!VF.userId ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">나중에 배정</button>
+        ${drivers.map(u => `<button onclick="VF.userId='${u.id}';refresh()" class="h-[36px] px-[14px] rounded-full text-[13px] font-bold ${VF.userId === u.id ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${u.name}</button>`).join('')}
+      </div>
+      <span class="text-[12px] text-sub">이미 차량이 배정된 사용자를 선택하면 기존 배정이 이 차량으로 바뀌어요.</span>
+    </div>
+    <div class="pt-3">${BtnPrimary('등록하기', 'saveVehicle()')}</div>
+  </div>`;
+};
+function saveVehicle() {
+  if (!VF.rego.trim() || !VF.make.trim() || !VF.model.trim()) { toast('등록번호, 제조사, 모델을 입력해 주세요'); return; }
+  if (VF.userId) VEHICLES.forEach(v => { if (v.userId === VF.userId) v.userId = ''; });
+  VEHICLES.push({ id: 'v' + (VEHICLES.length + 1) + Date.now() % 1000, rego: VF.rego.trim().toUpperCase(), make: VF.make.trim(), model: VF.model.trim(), year: Number(VF.year) || 2025, own: VF.own, fuel: VF.fuel, userId: VF.userId });
+  VF = null; toast('차량을 등록했어요'); _back();
+}
+function openVehicleSheet(id) {
+  const v = VEHICLES.find(x => x.id === id);
+  const drivers = USERS.filter(u => u.status === 'active');
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <div class="flex items-start justify-between">
+      <div class="flex flex-col gap-1"><span class="text-[13px] text-sub">${esc(v.make)} ${esc(v.model)} · ${v.year} · ${v.own}</span><h3 class="text-[22px] font-black text-ink">${esc(v.rego)}</h3></div>
+      <button onclick="closeSheet()" class="w-9 h-9 rounded-full bg-chip flex items-center justify-center">${I.x()}</button>
+    </div>
+    <span class="text-[13px] font-bold text-ink">배정 사용자</span>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="assignVehicle('${v.id}','')" class="h-[36px] px-[14px] rounded-full text-[13px] font-bold ${!v.userId ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">미배정</button>
+      ${drivers.map(u => `<button onclick="assignVehicle('${v.id}','${u.id}')" class="h-[36px] px-[14px] rounded-full text-[13px] font-bold ${v.userId === u.id ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${u.name}</button>`).join('')}
+    </div>
+    <button onclick="deleteVehicle('${v.id}')" class="h-[44px] text-[14px] font-bold text-warn mt-2">차량 삭제</button>
+  </div>`);
+}
+function assignVehicle(vid, uid) {
+  if (uid) VEHICLES.forEach(v => { if (v.userId === uid && v.id !== vid) v.userId = ''; });
+  VEHICLES.find(v => v.id === vid).userId = uid;
+  toast(uid ? `${userById(uid).name}님에게 배정했어요` : '배정을 해제했어요');
+  openVehicleSheet(vid); refresh();
+}
+function deleteVehicle(vid) {
+  const v = VEHICLES.find(x => x.id === vid);
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">${esc(v.rego)} 차량을 삭제할까요?</h3>
+    <p class="text-[14px] text-sub">삭제해도 이미 기록된 운행일지는 유지돼요.</p>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', `openVehicleSheet('${vid}')`)}<button onclick="VEHICLES.splice(VEHICLES.findIndex(x=>x.id==='${vid}'),1);closeSheet();toast('차량을 삭제했어요');refresh()" class="h-[54px] rounded-[14px] bg-warn text-white text-[16px] font-bold">삭제</button></div>
+  </div>`);
+}
+
+/* ---------- 사용자 관리 ---------- */
+SCREENS.users = () => `
+  ${TopBar('사용자 관리', `<button onclick="openInviteSheet()" class="w-9 h-9 rounded-full bg-brand flex items-center justify-center" aria-label="사용자 초대">${I.plus('#fff', 18)}</button>`)}
+  <div class="px-6 flex flex-col gap-3 pt-1">
+    <p class="text-[14px] text-sub">회사 차량을 사용하는 임직원을 초대하고 권한을 관리하세요.</p>
+    <div class="rounded-[14px] bg-white border border-line px-5">
+      ${USERS.map(u => { const v = VEHICLES.find(x => x.userId === u.id); return `
+        <button onclick="openUserSheet('${u.id}')" class="w-full flex items-center gap-3 py-[14px] border-b border-line last:border-b-0 text-left">
+          <span class="w-10 h-10 rounded-full ${u.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-ink'} flex items-center justify-center text-[15px] font-black shrink-0">${esc(u.name[0])}</span>
+          <span class="flex-1 min-w-0 flex flex-col gap-[2px]">
+            <span class="flex items-center gap-[6px]"><span class="text-[15px] font-bold text-ink">${esc(u.name)}</span>
+              ${u.role === 'admin' ? `<span class="text-[10px] px-[6px] py-[1px] rounded-[5px] bg-ink text-white font-bold">관리자</span>` : ''}
+              ${u.status === 'invited' ? `<span class="text-[10px] px-[6px] py-[1px] rounded-[5px] bg-peach text-brand font-bold">초대됨</span>` : ''}</span>
+            <span class="text-[12px] text-sub truncate">${esc(u.email)}</span>
+            <span class="text-[12px] text-sub">${v ? `${v.model} · ${v.rego}` : '배정 차량 없음'}</span>
+          </span>${I.chev()}
+        </button>`; }).join('')}
+    </div>
+    <button onclick="openInviteSheet()" class="h-[54px] rounded-[14px] border-2 border-dashed border-line text-[15px] font-bold text-sub flex items-center justify-center gap-2 mt-1">${I.plus('#626B76', 16)}사용자 초대</button>
+  </div>`;
+
+let INV = null;
+function openInviteSheet() {
+  if (!INV) INV = { name: '', email: '', role: 'user' };
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <div class="flex items-start justify-between"><h3 class="text-[22px] font-black text-ink">사용자 초대</h3><button onclick="INV=null;closeSheet()" class="w-9 h-9 rounded-full bg-chip flex items-center justify-center">${I.x()}</button></div>
+    <label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">이름</span><input id="invName" value="${esc(INV.name)}" oninput="INV.name=this.value" placeholder="홍길동" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink placeholder:text-[#A3AAB3]" /></label>
+    <label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">이메일</span><input id="invEmail" type="email" value="${esc(INV.email)}" oninput="INV.email=this.value" placeholder="name@company.com.au" class="h-[52px] rounded-[14px] bg-white border border-line px-4 text-[15px] text-ink placeholder:text-[#A3AAB3]" /></label>
+    <div class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">권한</span>
+      <div class="flex gap-2">${[['user', '일반 사용자'], ['admin', '관리자']].map(([k, l]) => `<button onclick="INV.role='${k}';openInviteSheet()" class="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold ${INV.role === k ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${l}</button>`).join('')}</div>
+      <span class="text-[12px] text-sub">${INV.role === 'admin' ? '관리자는 사업자 정보·차량·사용자를 관리할 수 있어요.' : '일반 사용자는 본인 운행기록과 보고서만 볼 수 있어요.'}</span>
+    </div>
+    ${BtnPrimary('초대 메일 보내기', 'sendInvite()')}
+  </div>`);
+}
+function sendInvite() {
+  const name = INV.name.trim(), email = INV.email.trim();
+  if (!name) { toast('이름을 입력해 주세요'); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('이메일 형식을 확인해 주세요'); return; }
+  USERS.push({ id: 'u' + (USERS.length + 1) + (Date.now() % 1000), name, email, role: INV.role, status: 'invited' });
+  INV = null; closeSheet(); toast(`${name}님에게 초대 메일을 보냈어요`); refresh();
+}
+function openUserSheet(id) {
+  const u = userById(id), isMe = u.id === S.me.id;
+  const v = VEHICLES.find(x => x.userId === u.id);
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <div class="flex items-start justify-between">
+      <div class="flex items-center gap-3">
+        <span class="w-12 h-12 rounded-full ${u.role === 'admin' ? 'bg-ink text-white' : 'bg-chip text-ink'} flex items-center justify-center text-[18px] font-black">${esc(u.name[0])}</span>
+        <div class="flex flex-col"><span class="text-[19px] font-black text-ink">${esc(u.name)}${isMe ? ' (나)' : ''}</span><span class="text-[13px] text-sub">${esc(u.email)}</span></div>
+      </div>
+      <button onclick="closeSheet()" class="w-9 h-9 rounded-full bg-chip flex items-center justify-center">${I.x()}</button>
+    </div>
+    <div class="rounded-[14px] bg-page px-4 py-3 flex flex-col gap-1 text-[14px]">
+      <div class="flex justify-between"><span class="text-sub">상태</span><b class="text-ink">${u.status === 'invited' ? '초대 수락 대기' : '사용 중'}</b></div>
+      <div class="flex justify-between"><span class="text-sub">배정 차량</span><b class="text-ink">${v ? `${v.model} · ${v.rego}` : '없음'}</b></div>
+    </div>
+    <div class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">권한</span>
+      <div class="flex gap-2 ${isMe ? 'opacity-40 pointer-events-none' : ''}">${[['user', '일반 사용자'], ['admin', '관리자']].map(([k, l]) => `<button onclick="setRole('${u.id}','${k}')" class="flex-1 h-[44px] rounded-[12px] text-[14px] font-bold ${u.role === k ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${l}</button>`).join('')}</div>
+      ${isMe ? `<span class="text-[12px] text-sub">본인 권한은 변경할 수 없어요.</span>` : ''}
+    </div>
+    ${u.status === 'invited' ? BtnGhost('초대 메일 다시 보내기', `toast('초대 메일을 다시 보냈어요')`) : ''}
+    ${isMe ? '' : `<button onclick="removeUser('${u.id}')" class="h-[44px] text-[14px] font-bold text-warn">사용자 삭제</button>`}
+  </div>`);
+}
+function setRole(id, role) { userById(id).role = role; toast('권한을 변경했어요'); openUserSheet(id); refresh(); }
+function removeUser(id) {
+  const u = userById(id);
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">${esc(u.name)}님을 삭제할까요?</h3>
+    <p class="text-[14px] text-sub">배정된 차량은 미배정 상태로 바뀌고, 제출된 운행일지는 유지돼요.</p>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', `openUserSheet('${id}')`)}<button onclick="doRemoveUser('${id}')" class="h-[54px] rounded-[14px] bg-warn text-white text-[16px] font-bold">삭제</button></div>
+  </div>`);
+}
+function doRemoveUser(id) { VEHICLES.forEach(v => { if (v.userId === id) v.userId = ''; }); USERS.splice(USERS.findIndex(u => u.id === id), 1); closeSheet(); toast('사용자를 삭제했어요'); refresh(); }
+
+/* ---------------- Boot ---------------- */
+STACK = [{ id: 'login' }];
+render();
+</script>
+</body>
+</html>
