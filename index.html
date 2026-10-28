@@ -56,6 +56,14 @@
     #banner { top: calc(env(safe-area-inset-top, 0px) + 8px); }
   }
 
+  /* ---------- 데모 시나리오: PC는 프레임 좌측 패널 / 모바일은 홈 하단 ---------- */
+  .demo-side, .demo-spacer { display: none; }
+  @media (min-width: 760px) {
+    .demo-side { display: flex; }
+    .demo-spacer { display: block; }
+    .demo-inapp { display: none !important; }
+  }
+
   /* ---------- Tab bar glass edge ---------- */
   .glass-edge { position: relative; }
   .glass-edge::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
@@ -102,8 +110,10 @@
 </style>
 </head>
 <body class="bg-[#E4E7EC] font-kr">
-<div class="stage min-h-full flex items-center justify-center p-6">
-  <div class="device">
+<div class="stage min-h-full flex items-center justify-center p-6 gap-10">
+  <!-- 데모 시나리오 패널 (PC 전용) -->
+  <aside id="demoSide" class="demo-side w-[230px] shrink-0 flex-col gap-3 self-center"></aside>
+  <div class="device shrink-0">
     <div id="screen" class="screen relative overflow-hidden bg-page">
 
       <!-- Dynamic Island -->
@@ -148,6 +158,7 @@
       <div class="home-indicator-frame absolute bottom-[8px] left-1/2 -translate-x-1/2 w-[134px] h-[5px] rounded-full bg-black z-[100] pointer-events-none"></div>
     </div>
   </div>
+  <div class="demo-spacer w-[230px] shrink-0"></div>
 </div>
 
 <script>
@@ -347,6 +358,7 @@ function render(skipScroll) {
   v.style.paddingBottom = isTab ? '110px' : '24px';
   if (isTab) renderTabbar(top.id);
   AFTER[top.id] && AFTER[top.id](top.p || {});
+  renderDemoSide();
 }
 function tab(id) { STACK = [{ id }]; render(); }
 function go(id, p) { STACK[STACK.length - 1].scroll = $('view').scrollTop; STACK.push({ id, p }); render(); }
@@ -631,14 +643,10 @@ SCREENS.home = () => {
       </button>
     </section>` : ''}
 
-    <!-- 데모 시나리오 (프로토타입 전용) -->
-    <section class="flex flex-col gap-2 pt-6 pb-2">
+    <!-- 데모 시나리오 (프로토타입 전용) — PC 폭에서는 좌측 패널로 이동 -->
+    <section class="demo-inapp flex flex-col gap-2 pt-6 pb-2">
       <p class="text-[11px] font-bold text-sub text-center">데모 시나리오 · 블랙박스/차량 BT 이벤트 재현</p>
-      <div class="grid grid-cols-3 gap-2">
-        <button onclick="demoBoard()" class="h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink ${d.state !== 'idle' || !S.device.registered ? 'opacity-40 pointer-events-none' : ''}">🚗 탑승 · 시동 ON</button>
-        <button onclick="demoAlight()" class="h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink ${d.state !== 'driving' ? 'opacity-40 pointer-events-none' : ''}">🔑 시동 OFF · 하차</button>
-        <button onclick="demoNear()" class="h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink ${d.state !== 'idle' || !S.device.registered ? 'opacity-40 pointer-events-none' : ''}">📡 ${S.bb.near ? '블박에서 멀어짐' : '블박 근처로'}</button>
-      </div>
+      <div class="grid grid-cols-3 gap-2">${DemoButtons('grid')}</div>
     </section>
   </main>`;
 };
@@ -646,6 +654,37 @@ SCREENS.home = () => {
 /* ---------- 운행 시뮬레이션 ---------- */
 function refreshDriveUi() {
   if (cur() === 'home' && STACK.length === 1) refresh();
+  renderDemoSide();
+}
+function DemoButtons(mode) {
+  const d = S.drive, reg = S.device.registered;
+  const off = c => c ? 'opacity-40 pointer-events-none' : '';
+  const cls = mode === 'grid'
+    ? 'h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink'
+    : 'h-[52px] w-full rounded-[14px] border border-line bg-white text-[14px] font-bold text-ink text-left px-4 flex items-center gap-3 hover:border-brand transition-colors';
+  const b = (fn, icon, label, disabled) => `<button onclick="${fn}" class="${cls} ${off(disabled)}">${mode === 'grid' ? `${icon} ${label}` : `<span class="text-[18px]">${icon}</span><span>${label}</span>`}</button>`;
+  return b('demoBoard()', '🚗', '탑승 · 시동 ON', d.state !== 'idle' || !reg)
+       + b('demoAlight()', '🔑', '시동 OFF · 하차', d.state !== 'driving')
+       + b('demoNear()', '📡', S.bb.near ? '블박에서 멀어짐' : '블박 근처로', d.state !== 'idle' || !reg);
+}
+function renderDemoSide() {
+  const el = $('demoSide'); if (!el) return;
+  const d = S.drive;
+  const state = !S.device.registered ? '기기 미등록' : d.state === 'driving' ? '운행 기록 중' : d.state === 'ending' ? '하차 확인 중…' : '운행 대기';
+  el.innerHTML = `
+    <div class="flex flex-col gap-1 px-1">
+      <span class="text-[12px] font-black text-brand tracking-wider">DEMO</span>
+      <span class="text-[19px] font-black text-ink leading-[26px]">데모 시나리오</span>
+      <span class="text-[13px] text-sub leading-[19px]">블랙박스 · 차량 BT 이벤트를<br/>재현해 시연해 보세요.</span>
+    </div>
+    ${S.role ? `
+    <div class="rounded-[14px] bg-white/70 border border-line px-4 py-3 flex flex-col gap-[6px] text-[12px]">
+      <div class="flex justify-between"><span class="text-sub">운행 상태</span><b class="text-ink">${state}</b></div>
+      <div class="flex justify-between"><span class="text-sub">블랙박스</span><b class="text-ink">${S.bb.near ? '근처 (BLE 연결)' : '멀리 있음'}</b></div>
+    </div>
+    <div class="flex flex-col gap-2">${DemoButtons('side')}</div>
+    <p class="text-[11px] text-sub leading-[16px] px-1">운행 중 1초 = 주행 1분으로 가속돼요.<br/>하차 확인은 3초로 단축했어요.</p>`
+    : `<p class="text-[13px] text-sub px-1">로그인하면 사용할 수 있어요.</p>`}`;
 }
 function demoBoard() {
   const d = S.drive;
