@@ -86,6 +86,9 @@
   @keyframes ping { 0% { transform: scale(.35); opacity: .9; } 100% { transform: scale(1.25); opacity: 0; } }
 
   .spin { animation: spin 1s linear infinite; }
+  .road-dash { stroke-dasharray: 14 18; animation: dash .5s linear infinite; animation-play-state: paused; }
+  .playing .road-dash { animation-play-state: running; }
+  @keyframes dash { to { stroke-dashoffset: -32; } }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   input, textarea { font-family: inherit; }
@@ -181,6 +184,18 @@ const I = {
   pdf: (c='#20262D', s=20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5l5 4.5 5-4.5M5 20h14"/></svg>`,
   send: (c='#fff', s=20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5 10 14M20.5 3.5 14 20.5l-4-6.5-6.5-4 17-6.5Z"/></svg>`,
   edit: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/></svg>`,
+  play: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><path d="M10 9.2l4.8 2.8-4.8 2.8V9.2Z"/></svg>`,
+  playFill: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5L7 4.5Z" fill="${c}"/></svg>`,
+  pause: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${c}"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`,
+  live: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.4" fill="${c}"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/></svg>`,
+  siren: (c='#D93F3F', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18v-5a6 6 0 0 1 12 0v5"/><path d="M4 18h16v2.5H4zM12 3v1.5M4.5 6l1 1M19.5 6l-1 1M12 10v4"/></svg>`,
+  wifi: (c='#20262D', s=16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"><path d="M2.5 9a14 14 0 0 1 19 0M6 12.5a9 9 0 0 1 12 0M9.5 16a4 4 0 0 1 5 0"/><circle cx="12" cy="19" r="1" fill="${c}"/></svg>`,
+  gear: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>`,
+  update: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4.5h-4.5"/><path d="M12 8v5l3 2"/></svg>`,
+  lock: (c='#20262D', s=14) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>`,
+  share: (c='#20262D', s=20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg>`,
+  mail: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6.5L20.5 7"/></svg>`,
+  chat: (c='#20262D', s=22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5.5h16v10.5H9.5L5 19.5V16H4z"/></svg>`,
   power: (c='#20262D', s=18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><path d="M12 3v8M7 6.5a7 7 0 1 0 10 0"/></svg>`,
 };
 
@@ -323,6 +338,8 @@ const ROOT_TABS = ['home', 'trips', 'reports', 'manage', 'more'];
 function render(skipScroll) {
   const top = STACK[STACK.length - 1];
   const v = $('view');
+  if (S.bb && !top.id.startsWith('bb')) S.bb.wifi = false;     // 블랙박스 화면을 벗어나면 Wi-Fi 연결 해제(BLE는 유지)
+  if (typeof PLAY !== 'undefined') { clearInterval(PLAY.timer); PLAY.pos = 0; PLAY.playing = false; }
   v.innerHTML = `<div class="fade-in">${SCREENS[top.id](top.p || {})}</div>`;
   v.scrollTop = skipScroll ? (top.scroll || 0) : 0;
   const isTab = ROOT_TABS.includes(top.id) && STACK.length === 1;
@@ -390,8 +407,8 @@ const Row = (icon, title, sub, onclick, right = '') => `
 function TripRow(t, opts = {}) {
   return `
   <button onclick="go('tripDetail',{id:'${t.id}'})" class="w-full flex items-center gap-3 py-[14px] ${opts.noBorder ? '' : 'border-b border-line'} text-left">
-    <div class="w-[46px] shrink-0 flex flex-col items-start">
-      <span class="text-[14px] font-bold text-ink leading-[18px]">${t.start}</span>
+    <div class="w-[58px] shrink-0 flex flex-col items-start">
+      <span class="text-[14px] font-bold text-ink leading-[18px] flex items-center gap-[3px]">${t.start}${t.impact ? IMPACT(13) : ''}</span>
       <span class="text-[12px] text-sub leading-[16px]">${t.end}</span>
     </div>
     <div class="flex-1 min-w-0 flex flex-col gap-[3px]">
@@ -544,7 +561,7 @@ SCREENS.home = () => {
     <p class="text-[26px] font-black text-ink leading-[38px]">${esc(S.me.name)}님,<br/>오늘도 안전 운행하세요.</p>
 
     <section class="flex items-center justify-between">
-      <button onclick="go('deviceManage')" class="flex items-center gap-[10px]">
+      <button onclick="go('bbHub')" class="flex items-center gap-[10px]">
         ${I.car('#626B76')}
         <span class="text-[14px] font-bold text-ink">${v ? `${v.model} · ${v.rego}` : '배정된 차량 없음'}</span>
       </button>
@@ -561,6 +578,8 @@ SCREENS.home = () => {
       <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">목적 선택이 필요한 운행이 있어요</span><span class="text-[12px] text-sub">미분류 운행은 보고서 제출 전에 분류해 주세요.</span></span>
       ${I.chev()}
     </button>` : ''}
+
+    ${BbHomeSection()}
 
     <section class="flex flex-col gap-4 pt-[10px]">
       <div class="flex items-center justify-between">
@@ -615,9 +634,10 @@ SCREENS.home = () => {
     <!-- 데모 시나리오 (프로토타입 전용) -->
     <section class="flex flex-col gap-2 pt-6 pb-2">
       <p class="text-[11px] font-bold text-sub text-center">데모 시나리오 · 블랙박스/차량 BT 이벤트 재현</p>
-      <div class="grid grid-cols-2 gap-2">
-        <button onclick="demoBoard()" class="h-[46px] rounded-[12px] border border-line bg-white text-[13px] font-bold text-ink ${d.state !== 'idle' || !S.device.registered ? 'opacity-40 pointer-events-none' : ''}">🚗 탑승 · 시동 ON</button>
-        <button onclick="demoAlight()" class="h-[46px] rounded-[12px] border border-line bg-white text-[13px] font-bold text-ink ${d.state !== 'driving' ? 'opacity-40 pointer-events-none' : ''}">🔑 시동 OFF · 하차</button>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="demoBoard()" class="h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink ${d.state !== 'idle' || !S.device.registered ? 'opacity-40 pointer-events-none' : ''}">🚗 탑승 · 시동 ON</button>
+        <button onclick="demoAlight()" class="h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink ${d.state !== 'driving' ? 'opacity-40 pointer-events-none' : ''}">🔑 시동 OFF · 하차</button>
+        <button onclick="demoNear()" class="h-[46px] rounded-[12px] border border-line bg-white text-[12px] font-bold text-ink ${d.state !== 'idle' || !S.device.registered ? 'opacity-40 pointer-events-none' : ''}">📡 ${S.bb.near ? '블박에서 멀어짐' : '블박 근처로'}</button>
       </div>
     </section>
   </main>`;
@@ -631,7 +651,7 @@ function demoBoard() {
   const d = S.drive;
   const last = TRIPS[TRIPS.length - 1];
   d.from = last ? last.to : 'hq';
-  d.state = 'driving'; d.sec = 0; d.km = 0; d.startHm = NOW_HM;
+  d.state = 'driving'; d.sec = 0; d.km = 0; d.startHm = NOW_HM; S.bb.near = true;
   banner('차량 연결됨 · 운행 기록 시작', `${myVehicle()?.model || '차량'} 시동 ON을 감지했어요. 자동으로 운행을 기록합니다.`);
   refreshDriveUi();
   clearInterval(d.timer);
@@ -800,6 +820,8 @@ SCREENS.tripDetail = ({ id }) => {
       <span class="h-[32px] px-3 rounded-full bg-white text-[13px] font-bold text-ink flex items-center gap-1">${I.edit('#20262D', 14)}${t.purpose ? '변경' : '선택'}</span>
     </button>
 
+    ${BbTripSection(t)}
+
     <div class="rounded-[14px] bg-white border border-line px-5">
       ${info('출발', `${PL[t.from].n}<br/><span class="text-[12px] font-normal text-sub">${PL[t.from].a}</span>`)}
       ${info('도착', `${PL[t.to].n}<br/><span class="text-[12px] font-normal text-sub">${PL[t.to].a}</span>`)}
@@ -961,7 +983,7 @@ SCREENS.more = () => {
 
     <section class="flex flex-col">
       <h2 class="text-[15px] font-bold text-sub pt-2">기기 · 차량</h2>
-      ${Row(I.device(), '기기 등록 · 관리', S.device.registered ? `${S.device.bb} · ${S.device.carBt}` : '등록된 기기가 없어요', "go('deviceManage')", S.device.registered ? '' : `<span class="w-2 h-2 rounded-full bg-brand mr-1"></span>`)}
+      ${Row(I.device(), '블랙박스 · 기기 관리', S.device.registered ? `${S.device.bb} · 영상 · 설정 · 업데이트` : '등록된 기기가 없어요', "go('bbHub')", S.device.registered ? '' : `<span class="w-2 h-2 rounded-full bg-brand mr-1"></span>`)}
       ${Row(I.car(), '내 차량', v ? `${v.make} ${v.model} · ${v.rego}` : '관리자에게 차량 배정을 요청하세요', "toast('차량 배정은 관리자가 설정해요')")}
     </section>
 
@@ -1185,6 +1207,7 @@ SCREENS.manage = () => `
 
     <section class="flex flex-col">
       ${Row(I.car(), '차량 관리', `등록 ${VEHICLES.length}대 · 미배정 ${VEHICLES.filter(v => !v.userId).length}대`, "go('vehicles')")}
+      ${Row(I.cam('#20262D', 22), '블랙박스 정책', `공통 설정 잠금 · 업데이트 요청 · 영상 접근 기록`, "go('bbPolicy')")}
       ${Row(I.users(), '사용자 관리', `${USERS.length}명 · 초대 대기 ${USERS.filter(u => u.status === 'invited').length}명`, "go('users')")}
     </section>
 
@@ -1280,7 +1303,7 @@ SCREENS.vehicleForm = () => {
 function saveVehicle() {
   if (!VF.rego.trim() || !VF.make.trim() || !VF.model.trim()) { toast('등록번호, 제조사, 모델을 입력해 주세요'); return; }
   if (VF.userId) VEHICLES.forEach(v => { if (v.userId === VF.userId) v.userId = ''; });
-  VEHICLES.push({ id: 'v' + (VEHICLES.length + 1) + Date.now() % 1000, rego: VF.rego.trim().toUpperCase(), make: VF.make.trim(), model: VF.model.trim(), year: Number(VF.year) || 2025, own: VF.own, fuel: VF.fuel, userId: VF.userId });
+  VEHICLES.push({ id: 'v' + (VEHICLES.length + 1) + Date.now() % 1000, rego: VF.rego.trim().toUpperCase(), make: VF.make.trim(), model: VF.model.trim(), year: Number(VF.year) || 2025, own: VF.own, fuel: VF.fuel, userId: VF.userId, fw: LATEST_FW, updateReq: false });
   VF = null; toast('차량을 등록했어요'); _back();
 }
 function openVehicleSheet(id) {
@@ -1389,6 +1412,577 @@ function removeUser(id) {
   </div>`);
 }
 function doRemoveUser(id) { VEHICLES.forEach(v => { if (v.userId === id) v.userId = ''; }); USERS.splice(USERS.findIndex(u => u.id === id), 1); closeSheet(); toast('사용자를 삭제했어요'); refresh(); }
+
+/* =====================================================================
+   BLACKBOX — 블랙박스 허브 (영상 · 라이브 뷰 · 사고 영상 보내기 · 설정 · 업데이트)
+   - 영상은 서버로 전송되지 않음: 블랙박스 Wi-Fi 직접 연결 → 휴대폰에 저장 → 공유
+   - 일반 사용자: 본인 배정 차량만, 삭제·포맷 불가 / 관리자: 정책 잠금·업데이트 요청·접근 기록
+   ===================================================================== */
+const LATEST_FW = '1.3.0';
+const RET_FROM = '2026-10-21';            // SD 카드 보관 기간(약 7일) — 이전 영상은 덮어쓰기됨
+const DELETED = new Set(), DOWNLOADED = new Set();
+const BB_SET = { res: 'FHD', park: '모션 감지', sens: '보통', vol: '보통', recSound: true, led: true };
+const BB_OPTS = { res: ['FHD', 'QHD'], park: ['끄기', '모션 감지', '타임랩스'], sens: ['낮음', '보통', '높음'], vol: ['끄기', '작게', '보통', '크게'] };
+const BB_LABEL = { res: '녹화 해상도', park: '주차 녹화', sens: '충격 감도', vol: '안내 음성 볼륨' };
+const POLICY = { res: true, park: true, sens: true };   // 회사 정책으로 고정된 항목
+const ACCESS_LOG = [
+  { who: '김민준', act: '다운로드', clip: '10/22 10:31 주행 영상', at: '10/22 18:40' },
+  { who: '이도윤', act: '다운로드', clip: '10/24 08:12 주행 충격', at: '10/24 09:03' },
+  { who: '이도윤', act: '공유 · 관리자 보고', clip: '10/24 08:12 주행 충격', at: '10/24 09:05' },
+];
+const PARK_CLIPS = [
+  { id: 'p1', date: '2026-10-25', time: '02:13', type: 'park', event: true, loc: '자택 · Parramatta', g: '0.9G' },
+  { id: 'p2', date: '2026-10-22', time: '23:47', type: 'park', event: true, loc: '자택 · Parramatta', g: '0.6G' },
+];
+VEHICLES.forEach(v => Object.assign(v, { v1: { fw: '1.2.4', updateReq: true }, v2: { fw: '1.3.0', updateReq: false }, v3: { fw: '1.2.4', updateReq: false } }[v.id] || {}));
+S.bb = { near: true, wifi: false };
+S.vf = 'all';
+
+// 충격 이벤트가 있었던 운행 (목업)
+(function markImpacts() {
+  const pick = (date, pred) => TRIPS.find(t => t.date === date && pred(t));
+  const set = (t, plus, g) => { if (t) t.impact = { time: addMin(t.start, plus), g }; };
+  set(pick('2026-10-27', t => t.start >= '13:00' && t.start < '14:00'), 6, '1.6G');
+  set(pick('2026-10-23', t => t.start < '09:00'), 14, '1.1G');
+  set(pick('2026-09-15', () => true), 9, '1.4G');      // 보관 기간이 지난 운행
+})();
+
+const IMPACT = (s = 14) => `<span class="inline-flex items-center justify-center rounded-full bg-warn shrink-0" style="width:${s}px;height:${s}px" title="충격 감지"><svg width="${s * 0.62}" height="${s * 0.62}" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"><path d="M12 5v9M12 19v.5"/></svg></span>`;
+const durMin = t => { const [a, b] = [t.start, t.end].map(s => s.split(':').map(Number)); return (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]); };
+const TYPE_LABEL = { drive: '주행 영상', event: '주행 충격', park: '주차 충격' };
+const clipLabel = c => `${c.date.slice(5).replace('-', '/')} ${c.time} ${TYPE_LABEL[c.type]}`;
+const nowStamp = () => `10/28 ${NOW_HM}`;
+const logAccess = (act, clips) => clips.forEach(c => ACCESS_LOG.push({ who: S.me.name, act, clip: clipLabel(c), at: nowStamp() }));
+
+function clipsAll() {
+  const out = [];
+  TRIPS.filter(t => t.date >= RET_FROM).forEach(t => {
+    const d = Math.max(1, durMin(t)), n = Math.max(1, Math.min(4, Math.round(d / 12)));
+    for (let i = 0; i < n; i++) out.push({ id: `${t.id}-${i}`, date: t.date, time: addMin(t.start, d * i / n), type: 'drive', tripId: t.id, loc: i < n / 2 ? PL[t.from].n : PL[t.to].n });
+    if (t.impact) out.push({ id: `${t.id}-x`, date: t.date, time: t.impact.time, type: 'event', event: true, tripId: t.id, loc: PL[t.to].n, g: t.impact.g });
+  });
+  PARK_CLIPS.forEach(c => out.push(c));
+  return out.filter(c => !DELETED.has(c.id)).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+}
+const clipById = id => clipsAll().find(c => c.id === id);
+
+/* ---------- Wi-Fi 연결 게이트 ---------- */
+function bbGo(id, p) {
+  if (!S.device.registered) { go('bbHub'); return; }
+  if (S.drive.state === 'driving') { toast('안전을 위해 운행 중에는 이용할 수 없어요'); return; }
+  if (!S.bb.near) { toast('블랙박스가 근처에 없어요. 차량 근처에서 이용해 주세요'); return; }
+  if (id === 'bbIncident') INC = null;
+  if (S.bb.wifi) { go(id, p); return; }
+  const ov = document.createElement('div');
+  ov.className = 'absolute inset-0 z-[85] bg-black/30 flex items-center justify-center fade-in';
+  ov.innerHTML = `<div class="rounded-[18px] bg-white px-6 py-5 flex flex-col items-center gap-3 shadow-xl">
+    <svg class="spin" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#E96E0A" stroke-width="2.6" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-9 9"/></svg>
+    <span class="text-[14px] font-bold text-ink">블랙박스 Wi-Fi에 연결하고 있어요</span></div>`;
+  $('screen').appendChild(ov);
+  setTimeout(() => { ov.remove(); S.bb.wifi = true; go(id, p); }, 900);
+}
+
+/* ---------- 홈 › 내 블랙박스 ---------- */
+function BbHomeSection() {
+  if (!S.device.registered) return '';
+  const v = myVehicle(), near = S.bb.near, driving = S.drive.state === 'driving';
+  const upd = v && v.updateReq && v.fw !== LATEST_FW;
+  const dim = !near || driving;
+  const qb = (icon, label, on) => `<button onclick="${on}" class="flex flex-col items-center gap-[6px] pt-[14px] pb-[6px] ${dim ? 'opacity-40' : ''}">${icon}<span class="text-[13px] font-bold text-ink">${label}</span></button>`;
+  return `
+  <section class="flex flex-col gap-3 pt-[10px]">
+    <div class="flex items-center justify-between">
+      <h2 class="text-[19px] font-bold text-ink">내 블랙박스</h2>
+      <button onclick="go('bbHub')" class="text-[13px] font-bold text-ink underline underline-offset-2">블랙박스 관리</button>
+    </div>
+    <div class="rounded-[14px] bg-white border border-line px-4 pt-[14px] pb-2 flex flex-col">
+      <button onclick="go('bbHub')" class="flex items-center gap-2 px-1 pb-[12px] text-left">
+        <span class="w-2 h-2 rounded-full ${near ? 'bg-[#22A06B]' : 'bg-[#C3C9D1]'} shrink-0"></span>
+        <span class="text-[14px] font-bold text-ink shrink-0">${esc(S.device.bb)}</span>
+        <span class="text-[12px] text-sub truncate">${!near ? '근처에 없음' : driving ? '운행 중 · 영상 기능 제한' : '근처에 있음 · BLE 연결'}</span>
+      </button>
+      <div class="grid grid-cols-3 border-t border-line">
+        ${qb(I.play('#20262D', 24), '영상 보기', "bbGo('bbVideos')")}
+        ${qb(I.live('#20262D', 24), '라이브 뷰', "bbGo('bbLive')")}
+        ${qb(I.siren('#D93F3F', 24), '사고 보고', "bbGo('bbIncident')")}
+      </div>
+      ${!near ? `<p class="text-[12px] text-sub text-center pb-2 pt-1">블랙박스와 Wi-Fi로 직접 연결해야 해서 차량 근처에서 이용할 수 있어요.</p>` : ''}
+    </div>
+    ${upd ? `
+    <button onclick="go('bbHub')" class="rounded-[14px] bg-peach px-5 py-[14px] flex items-center gap-3 text-left">
+      ${I.update('#E96E0A', 22)}
+      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[14px] font-bold text-ink">관리자가 펌웨어 업데이트를 요청했어요</span><span class="text-[12px] text-sub">v${v.fw} → v${LATEST_FW} · 차량 근처에서 진행해 주세요</span></span>
+      ${I.chev()}
+    </button>` : ''}
+  </section>`;
+}
+
+/* ---------- 블랙박스 허브 ---------- */
+SCREENS.bbHub = () => {
+  if (!S.device.registered) return SCREENS.deviceManage();
+  const v = myVehicle(), near = S.bb.near, wifi = S.bb.wifi;
+  const hasUpd = v && v.fw !== LATEST_FW;
+  const chip = (on, icon, label) => `<span class="h-[26px] px-[9px] rounded-full inline-flex items-center gap-[5px] text-[11px] font-bold ${on ? 'bg-white/15 text-white' : 'bg-white/5 text-[#7D8692]'}">${icon}${label}</span>`;
+  const qb = (icon, label, on) => `<button onclick="${on}" class="flex flex-col items-center gap-[6px] py-[14px] ${!near ? 'opacity-40' : ''}">${icon}<span class="text-[13px] font-bold text-ink">${label}</span></button>`;
+  const locked = Object.values(POLICY).filter(Boolean).length;
+  return `
+  ${TopBar('블랙박스')}
+  <div class="px-6 flex flex-col gap-4 pt-1">
+    <section class="rounded-2xl bg-ink px-[22px] pt-[16px] pb-[18px] flex flex-col gap-[12px]">
+      <div class="flex items-center justify-between">
+        <p class="flex items-center gap-[6px] text-[12px] font-bold text-white"><span class="w-2 h-2 rounded-full ${near ? 'bg-[#3DD68C]' : 'bg-[#7D8692]'}"></span>${near ? '근처에 있음' : '근처에 없음'}</p>
+        <div class="flex gap-[6px]">${chip(near, I.bt(near ? '#fff' : '#7D8692', 12), 'BLE')}${chip(wifi, I.wifi(wifi ? '#fff' : '#7D8692', 12), wifi ? 'Wi-Fi 연결됨' : 'Wi-Fi')}</div>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="w-[54px] h-[54px] rounded-[14px] bg-white/10 flex items-center justify-center shrink-0">${I.device('#fff', 30)}</span>
+        <div class="flex flex-col gap-[2px]">
+          <span class="text-[20px] font-black text-white">${esc(S.device.bb)}</span>
+          <span class="text-[12px] text-[#D8DDE3]">${v ? `${v.model} · ${v.rego}` : ''} · 펌웨어 v${v ? v.fw : '-'}</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-[6px] pt-1">
+        <div class="flex justify-between text-[11px] text-[#D8DDE3]"><span>SD 카드 64GB · 사용 72%</span><span>약 7일 분량 보관</span></div>
+        <div class="h-[6px] rounded-full bg-white/15 overflow-hidden"><div class="h-full w-[72%] bg-brand rounded-full"></div></div>
+      </div>
+    </section>
+
+    <section class="rounded-[14px] bg-white border border-line grid grid-cols-3">
+      ${qb(I.play('#20262D', 24), '영상 보기', "bbGo('bbVideos')")}
+      ${qb(I.live('#20262D', 24), '라이브 뷰', "bbGo('bbLive')")}
+      ${qb(I.siren('#D93F3F', 24), '사고 보고', "bbGo('bbIncident')")}
+    </section>
+
+    <section class="flex flex-col">
+      ${Row(I.gear('#20262D'), '블랙박스 설정', `회사 정책 고정 ${locked}개 항목 포함`, "bbGo('bbSettings')")}
+      ${Row(I.update('#20262D'), '펌웨어 업데이트', `현재 v${v ? v.fw : '-'}`, "bbGo('bbUpdate')", hasUpd ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-brand text-white font-bold mr-1 whitespace-nowrap">새 버전</span>` : '')}
+      ${Row(I.device(), '기기 정보 · 등록', `${esc(S.device.carBt)} · 재등록 · 등록 해제`, "go('deviceManage')")}
+    </section>
+
+    <section class="rounded-[14px] bg-page border border-line px-5 py-4 flex gap-3">
+      <span class="shrink-0 pt-[1px]">${I.info('#626B76', 20)}</span>
+      <p class="text-[12px] text-sub leading-[18px]">블랙박스 영상은 서버로 전송되지 않아요. 차량 근처에서 블랙박스와 Wi-Fi로 연결해 휴대폰에 저장한 뒤 공유할 수 있어요.${S.role === 'admin' ? '' : ' 영상 삭제는 관리자만 할 수 있어요.'}</p>
+    </section>
+  </div>`;
+};
+
+/* ---------- 영상 목록 ---------- */
+function Thumb(c, w = 104, h = 64) {
+  return `<span class="relative shrink-0 rounded-[10px] overflow-hidden bg-gradient-to-br ${c.type === 'park' ? 'from-[#2B3140] to-[#141820]' : 'from-[#4A5566] to-[#1E242D]'}" style="width:${w}px;height:${h}px">
+    <svg viewBox="0 0 104 64" width="${w}" height="${h}" class="absolute inset-0" preserveAspectRatio="none"><path d="M40 64 L50 30 L54 30 L64 64Z" fill="#ffffff14"/><path d="M52 64 L52 34" stroke="#ffffff55" stroke-width="1.5" stroke-dasharray="4 4"/><path d="M0 30 H104" stroke="#ffffff22"/></svg>
+    <span class="absolute inset-0 flex items-center justify-center"><span class="w-[26px] h-[26px] rounded-full bg-white/85 flex items-center justify-center">${I.playFill('#20262D', 12)}</span></span>
+    ${c.event ? `<span class="absolute top-[5px] left-[5px]">${IMPACT(16)}</span>` : ''}
+    <span class="absolute bottom-[4px] right-[5px] text-[9px] font-bold text-white/90">01:00</span>
+  </span>`;
+}
+SCREENS.bbVideos = ({ tripId } = {}) => {
+  const trip = tripId && TRIPS.find(t => t.id === tripId);
+  let all = clipsAll();
+  if (trip) all = all.filter(c => c.tripId === tripId);
+  const f = S.vf;
+  const list = all.filter(c => f === 'all' || (f === 'event' ? c.event : c.type === f));
+  const byDate = {};
+  list.forEach(c => (byDate[c.date] = byDate[c.date] || []).push(c));
+  const cnt = k => all.filter(c => k === 'all' || (k === 'event' ? c.event : c.type === k)).length;
+  const chip = (k, label) => `<button onclick="S.vf='${k}';refresh()" class="h-[34px] px-[14px] rounded-full text-[13px] font-bold whitespace-nowrap flex items-center gap-[5px] ${f === k ? 'bg-ink text-white' : 'bg-white text-ink border border-line'}">${k === 'event' ? IMPACT(14) : ''}${label} <span class="${f === k ? 'text-white/70' : 'text-sub'}">${cnt(k)}</span></button>`;
+  return `
+  ${TopBar(trip ? '운행 영상' : '블랙박스 영상')}
+  <div class="px-6 flex flex-col gap-4 pt-1">
+    ${trip ? `
+    <div class="rounded-[14px] bg-white border border-line px-4 py-3 flex items-center gap-3">
+      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[12px] text-sub">${fmtDate(trip.date)} · ${trip.start}–${trip.end}</span><span class="text-[14px] font-bold text-ink">${PL[trip.from].n} → ${PL[trip.to].n}</span></span>
+      <button onclick="STACK[STACK.length-1].p={};refresh()" class="h-[30px] px-[10px] rounded-full bg-chip text-[12px] font-bold text-ink flex items-center gap-1">${I.x('#20262D', 12)}전체 영상</button>
+    </div>` : `<p class="text-[13px] text-sub">SD 카드에 남아 있는 최근 약 7일(${fmtDate(RET_FROM, false)}~) 영상이에요.</p>`}
+    <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-6 px-6">${chip('all', '전체')}${chip('drive', '주행')}${chip('event', '충격')}${chip('park', '주차')}</div>
+    <div class="flex flex-col">
+      ${Object.keys(byDate).length ? Object.entries(byDate).map(([date, cs]) => `
+        <div class="pt-2">
+          <span class="text-[13px] font-bold text-sub">${fmtDate(date)}</span>
+          ${cs.map((c, i) => `
+          <button onclick="go('bbPlayer',{id:'${c.id}'})" class="w-full flex items-center gap-3 py-[10px] ${i < cs.length - 1 ? 'border-b border-line' : ''} text-left">
+            ${Thumb(c)}
+            <span class="flex-1 min-w-0 flex flex-col gap-[3px]">
+              <span class="text-[15px] font-bold ${c.event ? 'text-warn' : 'text-ink'}">${TYPE_LABEL[c.type]}${c.g ? ` · ${c.g}` : ''}</span>
+              <span class="text-[13px] text-ink">${c.time}</span>
+              <span class="text-[12px] text-sub truncate">${esc(c.loc)}</span>
+            </span>
+            ${DOWNLOADED.has(c.id) ? `<span class="text-[11px] px-[6px] py-[2px] rounded-[6px] bg-chip text-sub font-bold whitespace-nowrap">저장됨</span>` : ''}
+          </button>`).join('')}
+        </div>`).join('') : `<div class="py-16 text-center text-[14px] text-sub">해당하는 영상이 없어요.</div>`}
+    </div>
+  </div>`;
+};
+
+/* ---------- 영상 재생 ---------- */
+function Scene(opts = {}) {
+  return `<svg viewBox="0 0 343 200" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" class="absolute inset-0 ${opts.mirror ? '-scale-x-100' : ''}">
+    <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${opts.night ? '#0E1320' : '#7FA4C9'}"/><stop offset="1" stop-color="${opts.night ? '#2A3245' : '#CFDDE8'}"/></linearGradient></defs>
+    <rect width="343" height="96" fill="url(#sky)"/>
+    <rect y="96" width="343" height="104" fill="${opts.night ? '#1B1F27' : '#5B6470'}"/>
+    <path d="M0 96 L70 80 L120 92 L180 74 L240 90 L343 78 V96Z" fill="${opts.night ? '#151A24' : '#8EA3A0'}"/>
+    <path d="M60 200 L160 96 L183 96 L283 200Z" fill="${opts.night ? '#262B34' : '#454D58'}"/>
+    <path class="road-dash" d="M171.5 200 L171.5 98" stroke="#F3F4F6" stroke-width="4"/>
+    <path d="M60 200 L160 96 M283 200 L183 96" stroke="#E8E9EB" stroke-width="2.5" opacity=".7"/>
+    <rect x="${opts.rear ? 196 : 150}" y="118" width="34" height="22" rx="4" fill="${opts.night ? '#3B4250' : '#B7BEC7'}"/><rect x="${opts.rear ? 199 : 153}" y="134" width="6" height="3" fill="#E85D5D"/><rect x="${opts.rear ? 221 : 175}" y="134" width="6" height="3" fill="#E85D5D"/>
+    <path d="M0 200 Q171 160 343 200" fill="#0B0D11" opacity=".85"/>
+  </svg>`;
+}
+let PLAY = { timer: null, pos: 0, playing: false };
+SCREENS.bbPlayer = ({ id }) => {
+  const c = clipById(id);
+  if (!c) return `${TopBar('영상')}<div class="py-20 text-center text-sub">영상을 찾을 수 없어요.</div>`;
+  const trip = c.tripId && TRIPS.find(t => t.id === c.tripId);
+  const saved = DOWNLOADED.has(c.id);
+  const info = (k, v) => `<div class="flex items-start justify-between py-[12px] border-b border-line last:border-b-0 gap-4"><span class="text-[14px] text-sub shrink-0">${k}</span><span class="text-[14px] font-bold text-ink text-right">${v}</span></div>`;
+  return `
+  ${TopBar(TYPE_LABEL[c.type])}
+  <div class="flex flex-col gap-4 pt-1">
+    <div id="player" class="relative mx-6 h-[210px] rounded-[14px] overflow-hidden bg-black ${c.event ? 'ring-2 ring-warn' : ''}">
+      ${Scene({ night: c.type === 'park' })}
+      <span class="absolute top-[10px] left-[12px] text-[11px] font-bold text-white drop-shadow">${fmtDot(c.date)} <span id="ptime">${c.time}:00</span></span>
+      <span class="absolute top-[10px] right-[12px] text-[11px] font-bold text-white bg-black/40 rounded px-[6px] py-[1px]">${c.type === 'park' ? '주차' : '전방'}</span>
+      ${c.event ? `<span class="absolute bottom-[34px] left-[12px] flex items-center gap-1 text-[12px] font-bold text-white bg-warn/90 rounded-full pl-[3px] pr-[8px] py-[2px]">${IMPACT(16)}충격 감지 ${c.g}</span>` : ''}
+      <button onclick="bbPlay('${c.id}')" class="absolute inset-0 flex items-center justify-center" aria-label="재생"><span id="pbtn" class="w-[52px] h-[52px] rounded-full bg-white/85 flex items-center justify-center">${I.playFill('#20262D', 20)}</span></button>
+      <div class="absolute bottom-[12px] inset-x-[12px] h-[4px] rounded-full bg-white/30 overflow-hidden"><div id="pbar" class="h-full bg-brand" style="width:0%"></div></div>
+    </div>
+    <div class="px-6 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <span class="text-[20px] font-black text-ink">${fmtDate(c.date)} ${c.time}</span>
+        ${saved ? `<span class="text-[12px] px-[8px] py-[3px] rounded-[6px] bg-chip text-sub font-bold flex items-center gap-1">${I.check('#626B76', 12)}휴대폰에 저장됨</span>` : ''}
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="bbDownload(['${c.id}'])" ${saved ? 'disabled' : ''} class="h-[50px] rounded-[14px] bg-chip text-ink text-[15px] font-bold flex items-center justify-center gap-2 disabled:opacity-50">${I.pdf('#20262D', 18)}${saved ? '저장 완료' : '휴대폰에 저장'}</button>
+        <button onclick="bbShare(['${c.id}'])" class="h-[50px] rounded-[14px] bg-ink text-white text-[15px] font-bold flex items-center justify-center gap-2">${I.share('#fff', 18)}공유</button>
+      </div>
+      ${c.event ? BtnPrimary(`${I.siren('#fff', 18).replace('<svg', '<svg style="display:inline;vertical-align:-3px;margin-right:6px"')}사고 영상으로 보고하기`, `INC=null;go('bbIncident',{pre:'${c.id}'})`) : ''}
+      <div class="rounded-[14px] bg-white border border-line px-5">
+        ${info('위치', esc(c.loc))}
+        ${info('유형', TYPE_LABEL[c.type] + (c.g ? ` · ${c.g}` : ''))}
+        ${info('길이 · 화질', `1분 · ${BB_SET.res}`)}
+        ${trip ? info('연결된 운행', `<button onclick="go('tripDetail',{id:'${trip.id}'})" class="underline underline-offset-2">${trip.start} ${PL[trip.from].n.split(' · ')[0]} → ${PL[trip.to].n.split(' · ')[0]}</button>`) : info('연결된 운행', '주차 중 녹화')}
+      </div>
+      ${S.role === 'admin'
+        ? `<button onclick="bbDelete('${c.id}')" class="h-[44px] text-[14px] font-bold text-warn">블랙박스에서 영상 삭제</button>`
+        : `<p class="text-[12px] text-sub text-center flex items-center justify-center gap-1">${I.lock('#626B76', 13)}사고 증거 보존을 위해 영상 삭제는 관리자만 할 수 있어요.</p>`}
+    </div>
+  </div>`;
+};
+function bbPlay() {
+  const p = $('player'); if (!p) return;
+  PLAY.playing = !PLAY.playing;
+  p.classList.toggle('playing', PLAY.playing);
+  $('pbtn').innerHTML = PLAY.playing ? I.pause('#20262D', 20) : I.playFill('#20262D', 20);
+  $('pbtn').style.opacity = PLAY.playing ? '0' : '1';
+  clearInterval(PLAY.timer);
+  if (PLAY.playing) PLAY.timer = setInterval(() => {
+    PLAY.pos = Math.min(60, PLAY.pos + 1);
+    const b = $('pbar'), t = $('ptime');
+    if (!b) { clearInterval(PLAY.timer); return; }
+    b.style.width = (PLAY.pos / 60 * 100) + '%';
+    t.textContent = t.textContent.slice(0, 5) + ':' + pad(PLAY.pos % 60);
+    if (PLAY.pos >= 60) { PLAY.pos = 0; bbPlay(); }
+  }, 250);
+}
+function bbDelete(id) {
+  const c = clipById(id);
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-4">
+    <h3 class="text-[20px] font-black text-ink">이 영상을 삭제할까요?</h3>
+    <p class="text-[14px] text-sub">${clipLabel(c)} 영상이 블랙박스 SD 카드에서 삭제돼요. 삭제 이력은 접근 기록에 남아요.</p>
+    <div class="grid grid-cols-2 gap-2">${BtnGhost('취소', 'closeSheet()')}<button onclick="logAccess('삭제',[clipById('${id}')]);DELETED.add('${id}');closeSheet();toast('영상을 삭제했어요');back()" class="h-[54px] rounded-[14px] bg-warn text-white text-[16px] font-bold">삭제</button></div>
+  </div>`);
+}
+
+/* ---------- 다운로드 / 공유 ---------- */
+function bbDownload(ids, then) {
+  const todo = ids.filter(id => !DOWNLOADED.has(id));
+  if (!todo.length) { then && then(); return; }
+  openSheet(`<div class="px-6 pt-3 pb-9 flex flex-col gap-4">
+    <h3 class="text-[19px] font-black text-ink">휴대폰에 저장하고 있어요</h3>
+    <p class="text-[13px] text-sub">블랙박스 Wi-Fi로 영상 ${todo.length}개를 받는 중이에요. 차량에서 멀어지지 마세요.</p>
+    <div class="flex items-center gap-3"><div class="flex-1 h-[8px] rounded-full bg-chip overflow-hidden"><div id="dlBar" class="h-full bg-brand rounded-full transition-all duration-150" style="width:0%"></div></div><span id="dlPct" class="text-[13px] font-bold text-ink w-[38px] text-right">0%</span></div>
+  </div>`, { locked: true });
+  let p = 0;
+  const h = setInterval(() => {
+    p = Math.min(100, p + 100 / (8 + todo.length * 4));
+    const b = $('dlBar'), t = $('dlPct'); if (b) { b.style.width = p + '%'; t.textContent = Math.round(p) + '%'; }
+    if (p >= 100) {
+      clearInterval(h);
+      todo.forEach(id => DOWNLOADED.add(id));
+      logAccess('다운로드', todo.map(clipById).filter(Boolean));
+      closeSheet();
+      setTimeout(() => { if (then) then(); else { toast('휴대폰 앨범에 저장했어요'); refresh(); } }, 320);
+    }
+  }, 120);
+}
+function bbShare(ids, opts = {}) {
+  if (ids.some(id => !DOWNLOADED.has(id))) { bbDownload(ids, () => bbShare(ids, opts)); return; }
+  const admins = USERS.filter(u => u.role === 'admin' && u.id !== S.me.id && u.status === 'active');
+  const opt = (icon, label, act) => `<button onclick="bbShareTo(${JSON.stringify(ids).replace(/"/g, "'")}, '${act}')" class="flex flex-col items-center gap-2"><span class="w-[56px] h-[56px] rounded-[16px] ${act === 'admin' ? 'bg-brand' : 'bg-chip'} flex items-center justify-center">${icon}</span><span class="text-[12px] font-bold text-ink text-center leading-[15px]">${label}</span></button>`;
+  openSheet(`<div class="px-6 pt-2 pb-8 flex flex-col gap-5">
+    <div class="flex items-start justify-between"><div class="flex flex-col gap-1"><h3 class="text-[20px] font-black text-ink">영상 ${ids.length}개 공유</h3><span class="text-[13px] text-sub">휴대폰에 저장된 영상을 공유해요.</span></div><button onclick="closeSheet()" class="w-9 h-9 rounded-full bg-chip flex items-center justify-center">${I.x()}</button></div>
+    <div class="grid grid-cols-4 gap-2">
+      ${opt(I.send('#fff', 24), admins.length ? '관리자에게<br/>보고' : '회사 사고<br/>기록', 'admin')}
+      ${opt(I.mail('#20262D', 24), '메일', 'mail')}
+      ${opt(I.chat('#20262D', 24), '메시지', 'msg')}
+      ${opt(I.more('#20262D'), '다른 앱', 'etc')}
+    </div>
+    <p class="text-[12px] text-sub">보험사·경찰 제출은 메일 또는 다른 앱으로 보낼 수 있어요. 공유 이력은 회사 접근 기록에 남아요.</p>
+  </div>`);
+}
+function bbShareTo(ids, act) {
+  const clips = ids.map(clipById).filter(Boolean);
+  const admins = USERS.filter(u => u.role === 'admin' && u.id !== S.me.id && u.status === 'active');
+  const label = { admin: '공유 · 관리자 보고', mail: '공유 · 메일', msg: '공유 · 메시지', etc: '공유 · 다른 앱' }[act];
+  logAccess(label, clips);
+  closeSheet();
+  toast(act === 'admin' ? (admins.length ? `${admins[0].name}님(관리자)에게 보고했어요` : '회사 사고 기록에 저장했어요') : '공유를 완료했어요 (데모)');
+}
+
+/* ---------- 라이브 뷰 ---------- */
+let LIVE_CAM = 'front';
+SCREENS.bbLive = () => `
+  ${TopBar('라이브 뷰')}
+  <div class="flex flex-col gap-4 pt-1">
+    <div class="relative mx-6 h-[250px] rounded-[14px] overflow-hidden bg-black playing">
+      ${Scene({ rear: LIVE_CAM === 'rear', mirror: LIVE_CAM === 'rear' })}
+      <span class="absolute top-[10px] left-[12px] flex items-center gap-[6px] text-[11px] font-black text-white bg-warn rounded-full px-[8px] py-[2px]"><span class="pulse-dot w-[6px] h-[6px] rounded-full bg-white"></span>LIVE</span>
+      <span class="absolute top-[10px] right-[12px] text-[11px] font-bold text-white bg-black/40 rounded px-[6px] py-[1px]">${LIVE_CAM === 'front' ? '전방' : '후방'} · ${BB_SET.res}</span>
+      <span class="absolute bottom-[10px] left-[12px] text-[11px] font-bold text-white drop-shadow">${fmtDot(TODAY)} ${NOW_HM} · REC ●</span>
+    </div>
+    <div class="px-6 flex flex-col gap-4">
+      <div class="grid grid-cols-2 gap-2">
+        ${['front', 'rear'].map(k => `<button onclick="LIVE_CAM='${k}';refresh()" class="h-[46px] rounded-[12px] text-[14px] font-bold ${LIVE_CAM === k ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${k === 'front' ? '전방 카메라' : '후방 카메라'}</button>`).join('')}
+      </div>
+      <button onclick="toast('현재 화면을 앨범에 저장했어요 (데모)')" class="h-[50px] rounded-[14px] bg-chip text-ink text-[15px] font-bold">화면 캡처</button>
+      <p class="text-[12px] text-sub leading-[18px]">라이브 뷰는 블랙박스 Wi-Fi에 연결된 동안에만 볼 수 있어요. 녹화는 블랙박스에서 계속 진행돼요.</p>
+    </div>
+  </div>`;
+
+/* ---------- 사고 영상 보내기 ---------- */
+let INC = null;
+SCREENS.bbIncident = ({ pre } = {}) => {
+  const all = clipsAll();
+  if (!INC) {
+    const firstEvent = all.find(c => c.event && c.type === 'event');
+    INC = { sel: new Set(pre ? [pre] : firstEvent ? [firstEvent.id] : []), memo: '', step: 'pick' };
+  }
+  if (INC.step === 'done') {
+    const admins = USERS.filter(u => u.role === 'admin' && u.id !== S.me.id && u.status === 'active');
+    return `
+    ${TopBar('사고 영상 보내기')}
+    <div class="px-6 pt-10 flex flex-col items-center gap-4 text-center">
+      <span class="w-[72px] h-[72px] rounded-full bg-peach flex items-center justify-center">${I.check('#E96E0A', 34)}</span>
+      <p class="text-[22px] font-black text-ink leading-[30px]">${admins.length ? `${admins[0].name}님(관리자)에게<br/>사고를 보고했어요` : '회사 사고 기록에<br/>저장했어요'}</p>
+      <p class="text-[14px] text-sub leading-[21px]">영상 ${INC.sel.size}개가 휴대폰에 저장됐어요.<br/>보험사나 경찰에도 바로 보낼 수 있어요.</p>
+      <div class="w-full flex flex-col gap-2 pt-6">
+        ${BtnPrimary('보험사 등 다른 곳에 공유', `bbShare(${JSON.stringify([...INC.sel]).replace(/"/g, "'")})`)}
+        ${BtnGhost('완료', 'INC=null;back()')}
+      </div>
+    </div>`;
+  }
+  const events = all.filter(c => c.event).slice(0, 4);
+  const recent = all.filter(c => c.type === 'drive').slice(0, 6);
+  const row = c => {
+    const on = INC.sel.has(c.id);
+    return `<button onclick="INC.sel.has('${c.id}')?INC.sel.delete('${c.id}'):INC.sel.add('${c.id}');incRefresh()" class="w-full flex items-center gap-3 py-[10px] border-b border-line last:border-b-0 text-left">
+      ${Thumb(c, 80, 50)}
+      <span class="flex-1 min-w-0 flex flex-col gap-[2px]"><span class="text-[14px] font-bold ${c.event ? 'text-warn' : 'text-ink'}">${TYPE_LABEL[c.type]}${c.g ? ` · ${c.g}` : ''}</span><span class="text-[12px] text-sub truncate">${fmtDate(c.date)} ${c.time} · ${esc(c.loc)}</span></span>
+      <span class="w-[24px] h-[24px] rounded-full border-2 ${on ? 'border-brand bg-brand' : 'border-line'} flex items-center justify-center shrink-0">${on ? I.check('#fff', 13) : ''}</span>
+    </button>`;
+  };
+  return `
+  ${TopBar('사고 영상 보내기')}
+  <div class="px-6 flex flex-col gap-5 pt-1 pb-[90px]">
+    <div class="flex flex-col gap-1"><h2 class="text-[22px] font-black text-ink leading-[30px]">사고 시점의 영상을<br/>선택해 주세요</h2><p class="text-[14px] text-sub">선택한 영상을 휴대폰에 저장한 뒤 관리자에게 보고해요.</p></div>
+    <section class="flex flex-col"><span class="text-[13px] font-bold text-ink flex items-center gap-[6px] pb-1">${IMPACT(14)}자동 감지된 충격 영상</span>${events.length ? events.map(row).join('') : `<p class="text-[13px] text-sub py-3">감지된 충격 영상이 없어요.</p>`}</section>
+    <section class="flex flex-col"><span class="text-[13px] font-bold text-ink pb-1">최근 주행 영상</span>${recent.map(row).join('')}</section>
+    <label class="flex flex-col gap-[6px]"><span class="text-[13px] font-bold text-ink">사고 내용 (선택)</span>
+      <textarea id="incMemo" oninput="INC.memo=this.value" rows="3" placeholder="예: 고객사 주차장 진입 중 후방 접촉" class="rounded-[14px] bg-white border border-line px-4 py-3 text-[14px] text-ink placeholder:text-[#A3AAB3] resize-none">${esc(INC.memo)}</textarea></label>
+  </div>
+  <div class="sticky bottom-0 px-6 pt-3 pb-4 bg-gradient-to-t from-page via-page to-page/0">
+    <button id="incBtn" onclick="incSend()" ${INC.sel.size ? '' : 'disabled'} class="w-full h-[54px] rounded-[14px] bg-brand text-white text-[16px] font-bold disabled:bg-[#F3C9A6]">영상 ${INC.sel.size}개 저장 후 관리자에게 보고</button>
+  </div>`;
+};
+function incRefresh() { const m = $('incMemo'); if (m) INC.memo = m.value; refresh(); }
+function incSend() {
+  const ids = [...INC.sel];
+  bbDownload(ids, () => {
+    logAccess('공유 · 관리자 보고', ids.map(clipById).filter(Boolean));
+    INC.step = 'done'; refresh();
+  });
+}
+
+/* ---------- 블랙박스 설정 ---------- */
+SCREENS.bbSettings = () => {
+  const isAdmin = S.role === 'admin';
+  const seg = key => `<div class="flex gap-[6px]">${BB_OPTS[key].map(o => `<button onclick="BB_SET.${key}='${o}';refresh()" class="flex-1 h-[38px] rounded-[10px] text-[13px] font-bold ${BB_SET[key] === o ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${o}</button>`).join('')}</div>`;
+  const item = key => {
+    const locked = POLICY[key];
+    return `<div class="flex flex-col gap-[10px] py-4 border-b border-line last:border-b-0">
+      <div class="flex items-center justify-between">
+        <span class="text-[15px] font-bold text-ink">${BB_LABEL[key]}</span>
+        ${locked ? `<span class="text-[14px] font-bold text-ink">${BB_SET[key]}</span>` : ''}
+      </div>
+      ${locked ? `<div class="flex items-center justify-between">
+          <span class="text-[12px] text-sub flex items-center gap-1">${I.lock('#626B76', 13)}회사 정책으로 고정됨</span>
+          ${isAdmin ? `<button onclick="go('bbPolicy')" class="text-[12px] font-bold text-brand underline underline-offset-2">블랙박스 정책에서 변경</button>` : ''}
+        </div>` : seg(key)}
+    </div>`;
+  };
+  const tg = (key, label, desc) => `
+    <div class="flex items-center gap-3 py-4 border-b border-line last:border-b-0">
+      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${label}</span><span class="text-[12px] text-sub">${desc}</span></span>
+      <button onclick="BB_SET.${key}=!BB_SET.${key};refresh()" class="w-[51px] h-[31px] rounded-full p-[2px] ${BB_SET[key] ? 'bg-brand' : 'bg-[#D3D7DD]'}"><span class="block w-[27px] h-[27px] rounded-full bg-white shadow transition-transform ${BB_SET[key] ? 'translate-x-[20px]' : ''}"></span></button>
+    </div>`;
+  return `
+  ${TopBar('블랙박스 설정')}
+  <div class="px-6 flex flex-col gap-4 pt-1">
+    <h2 class="text-[15px] font-bold text-sub pt-1">녹화</h2>
+    <section class="rounded-[14px] bg-white border border-line px-5">${item('res')}${item('park')}${item('sens')}</section>
+    <h2 class="text-[15px] font-bold text-sub pt-1">편의</h2>
+    <section class="rounded-[14px] bg-white border border-line px-5">
+      ${item('vol')}
+      ${tg('recSound', '녹화 시작 알림음', '시동 ON 후 녹화 시작 시 알림음')}
+      ${tg('led', '보안 LED', '주차 중 LED 깜빡임 표시')}
+    </section>
+    <div class="flex flex-col gap-2 pt-2">
+      ${BtnPrimary('블랙박스에 적용', "toast('블랙박스에 설정을 적용했어요');back()")}
+      <p class="text-[12px] text-sub text-center">시간은 휴대폰과 자동으로 맞춰져요.</p>
+    </div>
+  </div>`;
+};
+
+/* ---------- 펌웨어 업데이트 ---------- */
+let UPD = { phase: 'idle', pct: 0, timer: null };
+SCREENS.bbUpdate = () => {
+  const v = myVehicle(), cur = v ? v.fw : '-', latest = cur === LATEST_FW;
+  const P = UPD.phase;
+  const stepLabel = UPD.pct < 45 ? '업데이트 파일을 준비하고 있어요' : UPD.pct < 85 ? '블랙박스로 전송하고 있어요 (Wi-Fi)' : '설치 중이에요 · 블랙박스가 재부팅돼요';
+  return `
+  ${TopBar('펌웨어 업데이트')}
+  <div class="px-6 flex flex-col gap-5 pt-1">
+    <section class="rounded-[14px] bg-white border border-line px-5 py-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between"><span class="text-[14px] text-sub">현재 버전</span><span class="text-[16px] font-black text-ink">v${cur}</span></div>
+      <div class="flex items-center justify-between"><span class="text-[14px] text-sub">최신 버전</span><span class="text-[16px] font-black ${latest ? 'text-ink' : 'text-brand'}">v${LATEST_FW}</span></div>
+    </section>
+    ${latest && P !== 'done' ? `<div class="py-6 text-center flex flex-col items-center gap-3"><span class="w-[60px] h-[60px] rounded-full bg-chip flex items-center justify-center">${I.check('#626B76', 28)}</span><p class="text-[16px] font-bold text-ink">최신 버전을 사용하고 있어요</p></div>` : ''}
+    ${P === 'done' ? `<div class="py-6 text-center flex flex-col items-center gap-3"><span class="w-[60px] h-[60px] rounded-full bg-peach flex items-center justify-center">${I.check('#E96E0A', 28)}</span><p class="text-[18px] font-black text-ink">업데이트를 완료했어요</p><p class="text-[13px] text-sub">블랙박스가 v${LATEST_FW}로 다시 시작됐어요.</p></div>` : ''}
+    ${!latest ? `
+      ${v && v.updateReq ? `<div class="rounded-[14px] bg-peach px-4 py-3 text-[13px] font-bold text-ink flex items-center gap-2">${I.update('#E96E0A', 18)}관리자가 이 버전으로 업데이트를 요청했어요</div>` : ''}
+      <section class="flex flex-col gap-2">
+        <span class="text-[13px] font-bold text-ink">v${LATEST_FW} 변경 사항</span>
+        <ul class="text-[13px] text-sub leading-[21px] list-disc pl-5">
+          <li>시동 OFF 후 하차 판단 정확도 개선</li>
+          <li>차량 BT 재연결 시 운행 분리 오류 수정</li>
+          <li>주차 중 충격 감지 안정성 향상</li>
+        </ul>
+      </section>
+      ${P === 'run' ? `
+      <section class="flex flex-col gap-2 pt-2">
+        <div class="flex items-center justify-between"><span class="text-[14px] font-bold text-ink">${stepLabel}</span><span id="updPct" class="text-[14px] font-black text-brand">${Math.round(UPD.pct)}%</span></div>
+        <div class="h-[8px] rounded-full bg-chip overflow-hidden"><div id="updBar" class="h-full bg-brand rounded-full" style="width:${UPD.pct}%"></div></div>
+        <p class="text-[12px] text-warn font-bold pt-1">업데이트 중에는 시동을 끄거나 차량에서 멀어지지 마세요.</p>
+      </section>` : `
+      <div class="pt-2 flex flex-col gap-2">
+        ${BtnPrimary('업데이트 시작', 'bbStartUpdate()')}
+        <p class="text-[12px] text-sub text-center">약 3분 소요 · 업데이트하는 동안 녹화가 잠시 중단돼요.</p>
+      </div>`}` : ''}
+  </div>`;
+};
+AFTER.bbUpdate = () => { if (UPD.phase === 'done' && cur() === 'bbUpdate') UPD.phase = 'idle'; };
+function bbStartUpdate() {
+  UPD = { phase: 'run', pct: 0, timer: null };
+  refresh();
+  UPD.timer = setInterval(() => {
+    UPD.pct = Math.min(100, UPD.pct + 3.5);
+    if (cur() === 'bbUpdate') {
+      const b = $('updBar'), t = $('updPct');
+      if (b) b.style.width = UPD.pct + '%';
+      if (t) t.textContent = Math.round(UPD.pct) + '%';
+      if ([45.5, 87.5].some(x => Math.abs(UPD.pct - x) < 1.8)) refresh();
+    }
+    if (UPD.pct >= 100) {
+      clearInterval(UPD.timer);
+      const v = myVehicle(); if (v) { v.fw = LATEST_FW; v.updateReq = false; }
+      UPD.phase = 'done';
+      if (cur() === 'bbUpdate') render(true);
+      toast('펌웨어 업데이트를 완료했어요');
+    }
+  }, 120);
+}
+
+/* ---------- 관리 › 블랙박스 정책 (관리자) ---------- */
+SCREENS.bbPolicy = () => {
+  const lockRow = key => `
+    <div class="flex flex-col gap-[10px] py-4 border-b border-line last:border-b-0">
+      <div class="flex items-center justify-between">
+        <span class="text-[15px] font-bold text-ink">${BB_LABEL[key]}</span>
+        <button onclick="POLICY.${key}=!POLICY.${key};refresh()" class="h-[30px] px-[10px] rounded-full text-[12px] font-bold flex items-center gap-1 ${POLICY[key] ? 'bg-ink text-white' : 'bg-chip text-sub'}">${I.lock(POLICY[key] ? '#fff' : '#626B76', 12)}${POLICY[key] ? '고정' : '사용자 변경 허용'}</button>
+      </div>
+      <div class="flex gap-[6px]">${BB_OPTS[key].map(o => `<button onclick="BB_SET.${key}='${o}';refresh()" class="flex-1 h-[36px] rounded-[10px] text-[13px] font-bold ${BB_SET[key] === o ? 'bg-ink text-white' : 'bg-white border border-line text-ink'}">${o}</button>`).join('')}</div>
+    </div>`;
+  const old = VEHICLES.filter(v => v.fw && v.fw !== LATEST_FW);
+  return `
+  ${TopBar('블랙박스 정책')}
+  <div class="px-6 flex flex-col gap-4 pt-1">
+    <p class="text-[14px] text-sub">회사 차량 블랙박스에 공통으로 적용할 설정과 업데이트, 영상 접근 이력을 관리해요.</p>
+
+    <h2 class="text-[17px] font-bold text-ink pt-2">공통 녹화 설정</h2>
+    <section class="rounded-[14px] bg-white border border-line px-5">${lockRow('res')}${lockRow('park')}${lockRow('sens')}</section>
+    <p class="text-[12px] text-sub -mt-2">고정된 항목은 사용자가 바꿀 수 없고, 사용자가 차량 근처에서 앱을 열면 블랙박스에 적용돼요.</p>
+
+    <div class="flex items-center justify-between pt-2">
+      <h2 class="text-[17px] font-bold text-ink">펌웨어</h2>
+      <span class="text-[13px] font-bold text-sub">최신 v${LATEST_FW}</span>
+    </div>
+    <section class="rounded-[14px] bg-white border border-line px-5">
+      ${VEHICLES.map(v => { const u = userById(v.userId), isOld = v.fw && v.fw !== LATEST_FW; return `
+        <div class="flex items-center gap-3 py-[14px] border-b border-line last:border-b-0">
+          <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${esc(v.rego)} <span class="text-[12px] font-normal text-sub">· ${u ? u.name : '미배정'}</span></span><span class="text-[12px] ${isOld ? 'text-brand font-bold' : 'text-sub'}">v${v.fw || '-'}${isOld ? ' · 업데이트 필요' : ' · 최신'}</span></span>
+          ${!isOld ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-chip text-sub font-bold">최신</span>`
+            : v.updateReq ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-peach text-brand font-bold">요청됨</span>`
+            : `<button onclick="VEHICLES.find(x=>x.id==='${v.id}').updateReq=true;toast('${u ? u.name + '님에게 ' : ''}업데이트를 요청했어요');refresh()" class="text-[12px] h-[28px] px-[10px] rounded-[8px] bg-ink text-white font-bold">요청</button>`}
+        </div>`; }).join('')}
+    </section>
+    ${old.some(v => !v.updateReq) ? BtnGhost(`업데이트 필요 차량 전체에 요청 (${old.filter(v => !v.updateReq).length}대)`, "VEHICLES.forEach(v=>{if(v.fw&&v.fw!==LATEST_FW)v.updateReq=true});toast('업데이트를 요청했어요');refresh()") : ''}
+
+    <div class="flex items-center justify-between pt-2">
+      <h2 class="text-[17px] font-bold text-ink">영상 접근 기록</h2>
+      <span class="text-[13px] font-bold text-sub">${ACCESS_LOG.length}건</span>
+    </div>
+    <section class="rounded-[14px] bg-white border border-line px-5">
+      ${ACCESS_LOG.slice().reverse().map(l => `
+        <div class="flex items-start gap-3 py-[12px] border-b border-line last:border-b-0">
+          <span class="w-8 h-8 rounded-full bg-chip flex items-center justify-center text-[13px] font-black text-ink shrink-0">${esc(l.who[0])}</span>
+          <span class="flex-1 min-w-0 flex flex-col gap-[2px]">
+            <span class="text-[14px] font-bold text-ink">${esc(l.who)} · <span class="${l.act === '삭제' ? 'text-warn' : l.act.includes('관리자') ? 'text-brand' : 'text-ink'}">${l.act}</span></span>
+            <span class="text-[12px] text-sub">${l.clip}</span>
+          </span>
+          <span class="text-[11px] text-sub shrink-0 pt-[2px]">${l.at}</span>
+        </div>`).join('')}
+    </section>
+    <p class="text-[12px] text-sub leading-[18px]">영상은 서버로 전송되지 않아요. 기록에는 휴대폰 저장·공유·삭제 이력만 남으며, 앱이 온라인일 때 동기화돼요.</p>
+  </div>`;
+};
+
+/* ---------- 운행 상세 › 블랙박스 영상 ---------- */
+function BbTripSection(t) {
+  const inRet = t.date >= RET_FROM;
+  const n = inRet ? clipsAll().filter(c => c.tripId === t.id).length : 0;
+  return `
+  <section class="rounded-[14px] bg-white border border-line px-5 py-4 flex flex-col gap-3">
+    <div class="flex items-center justify-between">
+      <span class="text-[15px] font-bold text-ink">블랙박스 영상</span>
+      ${t.impact ? `<span class="flex items-center gap-[5px] text-[12px] font-bold text-warn">${IMPACT(15)}충격 감지 ${t.impact.time} · ${t.impact.g}</span>` : ''}
+    </div>
+    ${inRet && n ? `
+      <button onclick="S.vf='all';bbGo('bbVideos',{tripId:'${t.id}'})" class="h-[46px] rounded-[12px] bg-ink text-white text-[14px] font-bold flex items-center justify-center gap-2">${I.playFill('#fff', 13)}이 운행의 영상 보기 (${n}개)</button>
+      <p class="text-[12px] text-sub leading-[17px]">블랙박스와 Wi-Fi로 연결해 영상을 불러와요. 차량 근처에서 이용할 수 있어요.</p>`
+    : `<p class="text-[13px] text-sub leading-[19px]">SD 카드 보관 기간(약 7일)이 지나 이 운행의 영상은 남아 있지 않아요.</p>`}
+  </section>`;
+}
+
+/* ---------- 데모: 블랙박스 근처/멀어짐 ---------- */
+function demoNear() { S.bb.near = !S.bb.near; S.bb.wifi = false; toast(S.bb.near ? '블랙박스가 근처에 있어요 (BLE 연결)' : '블랙박스에서 멀어졌어요 (BLE 해제)'); refresh(); }
 
 /* ---------------- Boot ---------------- */
 STACK = [{ id: 'login' }];
