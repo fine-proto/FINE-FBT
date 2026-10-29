@@ -630,8 +630,8 @@ SCREENS.home = () => {
   return `
   <header class="flex items-center justify-between px-6 py-[10px]">
     <h1 class="text-[21px] font-black text-brand leading-[28px] tracking-tight">FINE FBT</h1>
-    <button onclick="toast('알림 목록 (데모)')" class="relative w-[44px] h-[44px] rounded-full flex items-center justify-center" aria-label="알림">
-      ${I.bell('#20262D')}<span class="absolute top-[8px] right-[7px] w-2 h-2 rounded-full bg-brand"></span>
+    <button onclick="go('notifs')" class="relative w-[44px] h-[44px] rounded-full flex items-center justify-center" aria-label="알림">
+      ${I.bell('#20262D')}${unreadCount() ? `<span class="absolute top-[5px] right-[3px] min-w-[18px] h-[18px] px-[5px] rounded-full bg-brand text-white text-[11px] font-black flex items-center justify-center">${unreadCount()}</span>` : ''}
     </button>
   </header>
   <main class="px-6 pt-3 pb-[10px] flex flex-col gap-4">
@@ -653,8 +653,6 @@ SCREENS.home = () => {
       <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">목적 선택이 필요한 운행이 있어요</span><span class="text-[12px] text-sub">미분류 운행은 보고서 제출 전에 분류해 주세요.</span></span>
       ${I.chev()}
     </button>` : ''}
-
-    ${HomeAlerts()}
 
     ${S.role === 'admin' ? AdminHomeCard() : ''}
 
@@ -702,7 +700,7 @@ SCREENS.home = () => {
     <!-- 데모 시나리오 (프로토타입 전용) — PC 폭에서는 좌측 패널로 이동 -->
     <section class="demo-inapp flex flex-col gap-2 pt-6 pb-2">
       <p class="text-[11px] font-bold text-sub text-center">데모 시나리오 · 블랙박스/차량 BT 이벤트 재현</p>
-      <div class="grid grid-cols-3 gap-2">${DemoButtons('grid')}</div>
+      <div class="grid grid-cols-2 gap-2">${DemoButtons('grid')}</div>
     </section>
   </main>`;
 };
@@ -721,7 +719,8 @@ function DemoButtons(mode) {
   const b = (fn, icon, label, disabled) => `<button onclick="${fn}" class="${cls} ${off(disabled)}">${mode === 'grid' ? `${icon} ${label}` : `<span class="text-[18px]">${icon}</span><span>${label}</span>`}</button>`;
   return b('demoBoard()', '🚗', '탑승 · 시동 ON', d.state !== 'idle' || !reg)
        + b('demoAlight()', '🔑', '시동 OFF · 하차', d.state !== 'driving')
-       + b('demoNear()', '📡', S.bb.near ? '블박에서 멀어짐' : '블박 근처로', d.state !== 'idle' || !reg);
+       + b('demoNear()', '📡', S.bb.near ? '블박에서 멀어짐' : '블박 근처로', d.state !== 'idle' || !reg)
+       + b('demoParkImpact()', '💥', '주차 중 충격 발생', d.state !== 'idle' || !reg);
 }
 function renderDemoSide() {
   const el = $('demoSide'); if (!el) return;
@@ -1692,34 +1691,85 @@ function ConnChip() {
     : driving ? { t: '차량 연결됨', on: true, dot: '#E96E0A' }
     : near ? { t: '연결 대기', on: false, dot: '#22A06B' }
     : { t: '블랙박스 근처에 없음', on: false, dot: '#C3C9D1' };
+  const attn = reg && bbAttention();
   return `<button onclick="${reg ? "go('bbHub')" : "go('device')"}" class="h-[30px] pl-[10px] pr-[6px] inline-flex items-center gap-[6px] rounded-[6px] border text-[12px] font-bold whitespace-nowrap ${st.on ? 'bg-peach text-brand border-[#F8D3B4]' : st.warn ? 'bg-warnbg text-warn border-[#F5C6C6]' : 'bg-chip text-sub border-line'}" aria-label="블랙박스">
-    <span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${st.dot}"></span>${st.t}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    <span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${st.dot}"></span>${st.t}${attn ? `<span class="w-[6px] h-[6px] rounded-full bg-brand shrink-0 -ml-[1px]" title="확인할 항목"></span>` : ''}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>`;
 }
-const SEEN_IMPACT = new Set();
-function latestImpact() {
-  return TRIPS.filter(t => t.impact && t.date >= RET_FROM && !SEEN_IMPACT.has(t.id)).slice(-1)[0];
+
+/* ---------- 알림 센터 ----------
+   충격 감지 · 펌웨어 요청 · 보고서 생성 · 제출 요청 등은 홈 카드 대신 알림 센터(종 아이콘)에 모음 */
+const NOTIF_BY = {};
+let NSEQ = 100;
+function notifsOf(uid) {
+  if (NOTIF_BY[uid]) return NOTIF_BY[uid];
+  const imp = TRIPS.filter(t => t.impact && t.date >= RET_FROM);
+  const tripBody = t => `${t.impact.g} · ${PL[t.from].n} → ${PL[t.to].n}`;
+  const list = imp.map((t, i) => ({ id: 'n-' + t.id, type: 'impact', at: `${t.date} ${t.impact.time}`, read: i < imp.length - 1, title: '주행 중 충격이 감지됐어요', body: tripBody(t), act: `go('tripDetail',{id:'${t.id}'})` }));
+  PARK_CLIPS.forEach(c => list.push({ id: 'n-' + c.id, type: 'park', at: `${c.date} ${c.time}`, read: true, title: '주차 중 충격이 감지됐어요', body: `${c.g} · ${c.loc}`, act: `bbGo('bbPlayer',{id:'${c.id}'})` }));
+  if (uid === 'u1') {
+    list.push({ id: 'n-sub-u3', type: 'report', at: '2026-10-02 09:12', read: true, title: '이도윤님이 9월 운행일지를 제출했어요', body: '운행일지 제출 현황에서 확인할 수 있어요', act: "go('submissions')" });
+    list.push({ id: 'n-inc-u3', type: 'incident', at: '2026-10-24 09:05', read: false, title: '이도윤님이 사고 영상을 보고했어요', body: '주행 충격 1.1G · Sportage BMV 88R', act: "go('bbPolicy')" });
+  } else {
+    list.push({ id: 'n-rep-09', type: 'report', at: '2026-10-01 09:00', read: false, title: '9월 운행일지가 생성됐어요', body: '확인 후 관리자에게 제출해 주세요', act: "go('reportView',{ym:'2026-09'})" });
+    list.push({ id: 'n-req-09', type: 'request', at: '2026-10-27 10:30', read: true, title: '박서연님이 9월 운행일지 제출을 요청했어요', body: '보고서에서 확인 후 제출해 주세요', act: "go('reportView',{ym:'2026-09'})" });
+  }
+  const v = VEHICLES.find(x => x.userId === uid);
+  if (v && v.updateReq && v.fw !== LATEST_FW) list.push({ id: 'n-fw', type: 'firmware', at: '2026-10-26 16:20', read: false, title: '관리자가 펌웨어 업데이트를 요청했어요', body: `v${v.fw} → v${LATEST_FW} · 차량 근처에서 진행해 주세요`, act: "bbGo('bbUpdate')" });
+  return (NOTIF_BY[uid] = list);
 }
-function openImpact(id) { SEEN_IMPACT.add(id); go('tripDetail', { id }); }
-function HomeAlerts() {
-  if (!S.device.registered) return '';
-  const v = myVehicle(), imp = latestImpact();
-  const upd = v && v.updateReq && v.fw !== LATEST_FW;
+const myNotifs = () => S.me ? notifsOf(S.me.id).slice().sort((a, b) => b.at.localeCompare(a.at)) : [];
+const unreadCount = () => myNotifs().filter(n => !n.read).length;
+function bbAttention() {
+  const v = myVehicle();
+  return (v && v.updateReq && v.fw !== LATEST_FW) || myNotifs().some(n => !n.read && (n.type === 'impact' || n.type === 'park'));
+}
+function openNotif(id) {
+  const n = notifsOf(S.me.id).find(x => x.id === id); if (!n) return;
+  n.read = true;
+  new Function(n.act)();
+  renderDemoSide();
+}
+const N_ICON = {
+  impact:   () => `<span class="w-[40px] h-[40px] rounded-full bg-warnbg flex items-center justify-center shrink-0">${IMPACT(20)}</span>`,
+  park:     () => `<span class="w-[40px] h-[40px] rounded-full bg-warnbg flex items-center justify-center shrink-0">${IMPACT(20)}</span>`,
+  firmware: () => `<span class="w-[40px] h-[40px] rounded-full bg-peach flex items-center justify-center shrink-0">${I.update('#E96E0A', 20)}</span>`,
+  report:   () => `<span class="w-[40px] h-[40px] rounded-full bg-chip flex items-center justify-center shrink-0">${I.doc('#20262D')}</span>`,
+  request:  () => `<span class="w-[40px] h-[40px] rounded-full bg-peach flex items-center justify-center shrink-0">${I.send('#E96E0A', 18)}</span>`,
+  incident: () => `<span class="w-[40px] h-[40px] rounded-full bg-warnbg flex items-center justify-center shrink-0">${I.siren('#D93F3F', 20)}</span>`,
+};
+SCREENS.notifs = () => {
+  const list = myNotifs(), unread = list.filter(n => !n.read).length;
+  const when = n => { const [d, t] = n.at.split(' '); return d === TODAY ? t : `${fmtDate(d, false)} ${t}`; };
   return `
-    ${imp ? `
-    <div class="rounded-[14px] bg-warnbg border border-[#F5C6C6] px-5 py-4 flex items-center gap-3">
-      <button onclick="openImpact('${imp.id}')" class="flex-1 flex items-center gap-3 text-left min-w-0">
-        ${IMPACT(28)}
-        <span class="flex-1 min-w-0 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">충격이 감지된 운행이 있어요</span><span class="text-[12px] text-sub truncate">${fmtDate(imp.date)} ${imp.impact.time} · ${imp.impact.g} · 영상을 확인해 보세요</span></span>
-      </button>
-      <button onclick="SEEN_IMPACT.add('${imp.id}');refresh()" class="w-8 h-8 -mr-2 rounded-full flex items-center justify-center shrink-0" aria-label="닫기">${I.x('#626B76', 16)}</button>
-    </div>` : ''}
-    ${upd ? `
-    <button onclick="go('bbHub')" class="rounded-[14px] bg-peach px-5 py-[14px] flex items-center gap-3 text-left">
-      ${I.update('#E96E0A', 22)}
-      <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[14px] font-bold text-ink">관리자가 펌웨어 업데이트를 요청했어요</span><span class="text-[12px] text-sub">v${v.fw} → v${LATEST_FW} · 차량 근처에서 진행해 주세요</span></span>
-      ${I.chev()}
-    </button>` : ''}`;
+  ${TopBar('알림')}
+  <div class="px-6 flex flex-col gap-2 pt-1">
+    <div class="flex items-center justify-between">
+      <span class="text-[13px] text-sub">${unread ? `읽지 않은 알림 ${unread}개` : '모두 확인했어요'}</span>
+      ${unread ? `<button onclick="notifsOf(S.me.id).forEach(n=>n.read=true);refresh()" class="text-[13px] font-bold text-ink underline underline-offset-2">모두 읽음</button>` : ''}
+    </div>
+    ${list.length ? `<div class="flex flex-col">${list.map(n => `
+      <button onclick="openNotif('${n.id}')" class="w-full flex items-start gap-3 py-[14px] border-b border-line last:border-b-0 text-left">
+        ${N_ICON[n.type]()}
+        <span class="flex-1 min-w-0 flex flex-col gap-[3px]">
+          <span class="text-[15px] ${n.read ? 'font-medium text-sub' : 'font-bold text-ink'}">${n.title}</span>
+          <span class="text-[12px] text-sub leading-[17px]">${n.body}</span>
+          <span class="text-[11px] text-[#9AA3AE]">${when(n)}</span>
+        </span>
+        ${n.read ? '' : `<span class="w-2 h-2 rounded-full bg-brand mt-[7px] shrink-0"></span>`}
+      </button>`).join('')}</div>` : `<div class="py-16 text-center text-[14px] text-sub">알림이 없어요.</div>`}
+  </div>`;
+};
+
+/* ---------- 데모: 주차 중 충격 → 푸시 → 영상 확인 ---------- */
+function demoParkImpact() {
+  const last = TRIPS[TRIPS.length - 1];
+  const c = { id: 'p' + (++NSEQ), date: TODAY, time: NOW_HM, type: 'park', event: true, loc: last ? PL[last.to].n : PL.hq.n, g: '1.2G' };
+  PARK_CLIPS.push(c);
+  const n = { id: 'n-' + c.id, type: 'park', at: `${c.date} ${c.time}`, read: false, title: '주차 중 충격이 감지됐어요', body: `${c.g} · ${c.loc}`, act: `bbGo('bbPlayer',{id:'${c.id}'})` };
+  notifsOf(S.me.id).push(n);
+  banner('주차 중 충격이 감지됐어요', `${c.loc} · ${c.g} · 탭하여 영상을 확인하세요`, () => openNotif(n.id));
+  if (cur() === 'home' || cur() === 'notifs') refresh(); else renderDemoSide();
 }
 
 /* ---------- 블랙박스 허브 ---------- */
@@ -2108,6 +2158,7 @@ function bbStartUpdate() {
     if (UPD.pct >= 100) {
       clearInterval(UPD.timer);
       const v = myVehicle(); if (v) { v.fw = LATEST_FW; v.updateReq = false; }
+      notifsOf(S.me.id).forEach(n => { if (n.type === 'firmware') n.read = true; });
       UPD.phase = 'done';
       if (cur() === 'bbUpdate') render(true);
       toast('펌웨어 업데이트를 완료했어요');
@@ -2386,6 +2437,12 @@ const I18N = {
   '영상은 서버로 전송되지 않아요. 기록에는 휴대폰 저장·공유·삭제 이력만 남으며, 앱이 온라인일 때 동기화돼요.': 'Videos are never uploaded. The log records only saves, shares and deletions, and syncs when the app is online.',
   '다운로드': 'Saved', '공유 · 관리자 보고': 'Shared · Reported to admin', '공유 · 메일': 'Shared · Email', '공유 · 메시지': 'Shared · Messages', '공유 · 다른 앱': 'Shared · Other app',
   '배정:': 'Assigned:', '차량 근처에서 진행해 주세요': 'Please update near the car', '펌웨어 v': 'Firmware v',
+  // 알림 센터 (2026.10.29)
+  '주행 중 충격이 감지됐어요': 'Impact detected while driving', '주차 중 충격이 감지됐어요': 'Impact detected while parked',
+  '9월 운행일지가 생성됐어요': 'Your September logbook is ready', '확인 후 관리자에게 제출해 주세요': 'Review it and submit to your admin',
+  '보고서에서 확인 후 제출해 주세요': 'Review and submit it in Reports', '운행일지 제출 현황에서 확인할 수 있어요': 'See Logbook submissions for details',
+  '모두 읽음': 'Mark all read', '모두 확인했어요': 'All caught up', '알림이 없어요.': 'No notifications.', '확인할 항목': 'Needs attention',
+  '주차 중 충격 발생': 'Parking impact', '💥 주차 중 충격 발생': '💥 Parking impact', '탭하여 영상을 확인하세요': 'tap to view the video',
   // 홈 재구성 · 회사 관리 (2026.10.29)
   '블랙박스 근처에 없음': 'Dashcam out of range', '충격이 감지된 운행이 있어요': 'An impact was detected on a trip', '영상을 확인해 보세요': 'check the video',
   '9월 운행일지 제출': 'Sep logbooks', '제출 현황': 'Details', '모든 사용자가 제출했어요': 'Everyone has submitted',
@@ -2401,6 +2458,10 @@ const I18N_INLINE = [
 ];
 const T = s => trCore(s);
 const I18N_RULES = [
+  [/^읽지 않은 알림 (\d+)개$/, (_, n) => `${n} unread`],
+  [/^(.+)님이 9월 운행일지를 제출했어요$/, (_, n) => `${T(n)} submitted the September logbook`],
+  [/^(.+)님이 9월 운행일지 제출을 요청했어요$/, (_, n) => `${T(n)} asked you to submit the September logbook`],
+  [/^(.+)님이 사고 영상을 보고했어요$/, (_, n) => `${T(n)} reported incident videos`],
   [/^미제출 (\d+)명$/, (_, n) => `${n} not submitted`],
   [/^(\d+)월 (\d+)\/(\d+) 제출$/, (_, m, a, b) => `${MON_EN[m - 1]}: ${a}/${b} submitted`],
   [/^(\d+)명이 아직$/, (_, n) => `${n} user(s) haven't`],
