@@ -1635,7 +1635,7 @@ const PARK_CLIPS = [
   { id: 'p1', date: '2026-10-25', time: '02:13', type: 'park', event: true, loc: '자택 · Parramatta', g: '0.9G' },
   { id: 'p2', date: '2026-10-22', time: '23:47', type: 'park', event: true, loc: '자택 · Parramatta', g: '0.6G' },
 ];
-VEHICLES.forEach(v => Object.assign(v, { v1: { fw: '1.2.4', updateReq: true }, v2: { fw: '1.3.0', updateReq: false }, v3: { fw: '1.2.4', updateReq: false } }[v.id] || {}));
+VEHICLES.forEach(v => Object.assign(v, { v1: { fw: '1.2.4', updateReq: true, reqAt: '2026-10-26 16:20', reqBy: 'u1' }, v2: { fw: '1.3.0', updateReq: false }, v3: { fw: '1.2.4', updateReq: false } }[v.id] || {}));
 S.bb = { near: true, wifi: false };
 S.vf = 'all';
 
@@ -1691,9 +1691,8 @@ function ConnChip() {
     : driving ? { t: '차량 연결됨', on: true, dot: '#E96E0A' }
     : near ? { t: '연결 대기', on: false, dot: '#22A06B' }
     : { t: '블랙박스 근처에 없음', on: false, dot: '#C3C9D1' };
-  const attn = reg && bbAttention();
   return `<button onclick="${reg ? "go('bbHub')" : "go('device')"}" class="h-[30px] pl-[10px] pr-[6px] inline-flex items-center gap-[6px] rounded-[6px] border text-[12px] font-bold whitespace-nowrap ${st.on ? 'bg-peach text-brand border-[#F8D3B4]' : st.warn ? 'bg-warnbg text-warn border-[#F5C6C6]' : 'bg-chip text-sub border-line'}" aria-label="블랙박스">
-    <span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${st.dot}"></span>${st.t}${attn ? `<span class="w-[6px] h-[6px] rounded-full bg-brand shrink-0 -ml-[1px]" title="확인할 항목"></span>` : ''}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    <span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${st.dot}"></span>${st.t}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>`;
 }
 
@@ -1715,15 +1714,11 @@ function notifsOf(uid) {
     list.push({ id: 'n-req-09', type: 'request', at: '2026-10-27 10:30', read: true, title: '박서연님이 9월 운행일지 제출을 요청했어요', body: '보고서에서 확인 후 제출해 주세요', act: "go('reportView',{ym:'2026-09'})" });
   }
   const v = VEHICLES.find(x => x.userId === uid);
-  if (v && v.updateReq && v.fw !== LATEST_FW) list.push({ id: 'n-fw', type: 'firmware', at: '2026-10-26 16:20', read: false, title: '관리자가 펌웨어 업데이트를 요청했어요', body: `v${v.fw} → v${LATEST_FW} · 차량 근처에서 진행해 주세요`, act: "bbGo('bbUpdate')" });
+  if (v && v.updateReq && v.fw !== LATEST_FW) list.push({ id: 'n-fw', type: 'firmware', at: '2026-10-26 16:20', read: false, title: '관리자가 펌웨어 업데이트를 요청했어요', body: `v${v.fw} → v${LATEST_FW} · 차량 근처에서 진행해 주세요`, act: "go('fwRequest')" });
   return (NOTIF_BY[uid] = list);
 }
 const myNotifs = () => S.me ? notifsOf(S.me.id).slice().sort((a, b) => b.at.localeCompare(a.at)) : [];
 const unreadCount = () => myNotifs().filter(n => !n.read).length;
-function bbAttention() {
-  const v = myVehicle();
-  return (v && v.updateReq && v.fw !== LATEST_FW) || myNotifs().some(n => !n.read && (n.type === 'impact' || n.type === 'park'));
-}
 function openNotif(id) {
   const n = notifsOf(S.me.id).find(x => x.id === id); if (!n) return;
   n.read = true;
@@ -2143,7 +2138,57 @@ SCREENS.bbUpdate = () => {
       </div>`}` : ''}
   </div>`;
 };
-AFTER.bbUpdate = () => { if (UPD.phase === 'done' && cur() === 'bbUpdate') UPD.phase = 'idle'; };
+AFTER.bbUpdate = (p) => {
+  if (UPD.phase === 'done' && cur() === 'bbUpdate') UPD.phase = 'idle';
+  const v = myVehicle();
+  if (p && p.auto && UPD.phase === 'idle' && v && v.fw !== LATEST_FW) { p.auto = false; bbStartUpdate(); }   // 요청 정보 화면에서 '업데이트' → 연결 후 바로 실행
+};
+
+/* ---------- 알림 › 펌웨어 업데이트 요청 정보 (블랙박스 연결 전 확인 화면) ---------- */
+SCREENS.fwRequest = () => {
+  const v = myVehicle(), done = v && v.fw === LATEST_FW;
+  const by = v && userById(v.reqBy);
+  const at = v && v.reqAt ? (([d, t]) => `${fmtDate(d)} ${t}`)(v.reqAt.split(' ')) : '-';
+  const row = (k, val, strong) => `<div class="flex items-center justify-between py-[13px] border-b border-line last:border-b-0"><span class="text-[14px] text-sub">${k}</span><span class="text-[15px] font-bold ${strong ? 'text-brand' : 'text-ink'}">${val}</span></div>`;
+  const near = S.bb.near, driving = S.drive.state === 'driving';
+  return `
+  ${TopBar('펌웨어 업데이트 요청')}
+  <div class="px-6 flex flex-col gap-5 pt-1">
+    <div class="flex flex-col gap-1">
+      <span class="text-[13px] font-bold text-brand">${by ? `${esc(by.name)}님(관리자)의 요청` : '관리자 요청'}</span>
+      <h2 class="text-[22px] font-black text-ink leading-[30px]">${done ? L('블랙박스가 최신 버전으로<br/>업데이트됐어요', 'Your dashcam is<br/>up to date') : L('블랙박스 펌웨어를<br/>업데이트해 주세요', 'Please update your<br/>dashcam firmware')}</h2>
+    </div>
+    <section class="rounded-[14px] bg-white border border-line px-5">
+      ${row('대상 기기', `${esc(S.device.bb)} · ${v ? esc(v.rego) : '-'}`)}
+      ${row('현재 버전', `v${v ? v.fw : '-'}`)}
+      ${row('요청 버전', `v${LATEST_FW}`, !done)}
+      ${row('요청자', by ? `${esc(by.name)} (관리자)` : '-')}
+      ${row('요청 일시', at)}
+    </section>
+    <section class="flex flex-col gap-2">
+      <span class="text-[13px] font-bold text-ink">v${LATEST_FW} 변경 사항</span>
+      <ul class="text-[13px] text-sub leading-[21px] list-disc pl-5">
+        <li>시동 OFF 후 하차 판단 정확도 개선</li>
+        <li>차량 BT 재연결 시 운행 분리 오류 수정</li>
+        <li>주차 중 충격 감지 안정성 향상</li>
+      </ul>
+    </section>
+    ${done ? `
+    <div class="rounded-[14px] bg-peach px-4 py-4 flex items-center gap-3">${I.check('#E96E0A', 20)}<span class="text-[14px] font-bold text-ink">업데이트를 완료했어요</span></div>` : `
+    <section class="rounded-[14px] bg-page border border-line px-4 py-4 flex flex-col gap-2">
+      <span class="text-[13px] font-bold text-ink">업데이트 전 확인해 주세요</span>
+      <ul class="text-[12px] text-sub leading-[19px] list-disc pl-4">
+        <li>차량 근처에서 블랙박스와 Wi-Fi로 연결해 진행해요.</li>
+        <li>약 3분 소요 · 업데이트하는 동안 녹화가 잠시 중단돼요.</li>
+        <li>업데이트 중에는 시동을 끄거나 차량에서 멀어지지 마세요.</li>
+      </ul>
+    </section>
+    <div class="flex flex-col gap-2 pt-1">
+      ${BtnPrimary('업데이트', "bbGo('bbUpdate',{auto:true})", driving || !near ? 'opacity-50' : '')}
+      ${driving ? `<p class="text-[12px] text-sub text-center">안전을 위해 운행 중에는 이용할 수 없어요</p>` : !near ? `<p class="text-[12px] text-sub text-center">블랙박스가 근처에 없어요. 차량 근처에서 이용해 주세요</p>` : ''}
+    </div>`}
+  </div>`;
+};
 function bbStartUpdate() {
   UPD = { phase: 'run', pct: 0, timer: null };
   refresh();
@@ -2196,10 +2241,10 @@ SCREENS.bbPolicy = () => {
           <span class="flex-1 flex flex-col gap-[2px]"><span class="text-[15px] font-bold text-ink">${esc(v.rego)} <span class="text-[12px] font-normal text-sub">· ${u ? u.name : '미배정'}</span></span><span class="text-[12px] ${isOld ? 'text-brand font-bold' : 'text-sub'}">v${v.fw || '-'}${isOld ? ' · 업데이트 필요' : ' · 최신'}</span></span>
           ${!isOld ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-chip text-sub font-bold">최신</span>`
             : v.updateReq ? `<span class="text-[11px] px-[7px] py-[2px] rounded-[6px] bg-peach text-brand font-bold">요청됨</span>`
-            : `<button onclick="VEHICLES.find(x=>x.id==='${v.id}').updateReq=true;toast('${u ? u.name + '님에게 ' : ''}업데이트를 요청했어요');refresh()" class="text-[12px] h-[28px] px-[10px] rounded-[8px] bg-ink text-white font-bold">요청</button>`}
+            : `<button onclick="Object.assign(VEHICLES.find(x=>x.id==='${v.id}'),{updateReq:true,reqAt:TODAY+' '+NOW_HM,reqBy:S.me.id});toast('${u ? u.name + '님에게 ' : ''}업데이트를 요청했어요');refresh()" class="text-[12px] h-[28px] px-[10px] rounded-[8px] bg-ink text-white font-bold">요청</button>`}
         </div>`; }).join('')}
     </section>
-    ${old.some(v => !v.updateReq) ? BtnGhost(`업데이트 필요 차량 전체에 요청 (${old.filter(v => !v.updateReq).length}대)`, "VEHICLES.forEach(v=>{if(v.fw&&v.fw!==LATEST_FW)v.updateReq=true});toast('업데이트를 요청했어요');refresh()") : ''}
+    ${old.some(v => !v.updateReq) ? BtnGhost(`업데이트 필요 차량 전체에 요청 (${old.filter(v => !v.updateReq).length}대)`, "VEHICLES.forEach(v=>{if(v.fw&&v.fw!==LATEST_FW&&!v.updateReq)Object.assign(v,{updateReq:true,reqAt:TODAY+' '+NOW_HM,reqBy:S.me.id})});toast('업데이트를 요청했어요');refresh()") : ''}
 
     <div class="flex items-center justify-between pt-2">
       <h2 class="text-[17px] font-bold text-ink">영상 접근 기록</h2>
@@ -2437,6 +2482,11 @@ const I18N = {
   '영상은 서버로 전송되지 않아요. 기록에는 휴대폰 저장·공유·삭제 이력만 남으며, 앱이 온라인일 때 동기화돼요.': 'Videos are never uploaded. The log records only saves, shares and deletions, and syncs when the app is online.',
   '다운로드': 'Saved', '공유 · 관리자 보고': 'Shared · Reported to admin', '공유 · 메일': 'Shared · Email', '공유 · 메시지': 'Shared · Messages', '공유 · 다른 앱': 'Shared · Other app',
   '배정:': 'Assigned:', '차량 근처에서 진행해 주세요': 'Please update near the car', '펌웨어 v': 'Firmware v',
+  // 펌웨어 업데이트 요청 정보 (2026.10.29)
+  '펌웨어 업데이트 요청': 'Firmware update request', '관리자 요청': 'Admin request', '대상 기기': 'Device', '요청 버전': 'Requested version',
+  '요청자': 'Requested by', '요청 일시': 'Requested on', '업데이트 전 확인해 주세요': 'Before you update',
+  '차량 근처에서 블랙박스와 Wi-Fi로 연결해 진행해요.': 'The update runs over a direct Wi-Fi link to the dashcam, near your car.',
+  '업데이트': 'Update',
   // 알림 센터 (2026.10.29)
   '주행 중 충격이 감지됐어요': 'Impact detected while driving', '주차 중 충격이 감지됐어요': 'Impact detected while parked',
   '9월 운행일지가 생성됐어요': 'Your September logbook is ready', '확인 후 관리자에게 제출해 주세요': 'Review it and submit to your admin',
@@ -2458,6 +2508,8 @@ const I18N_INLINE = [
 ];
 const T = s => trCore(s);
 const I18N_RULES = [
+  [/^(.+)님\(관리자\)의 요청$/, (_, n) => `Requested by ${T(n)} (admin)`],
+  [/^(.+) \(관리자\)$/, (_, n) => `${T(n)} (admin)`],
   [/^읽지 않은 알림 (\d+)개$/, (_, n) => `${n} unread`],
   [/^(.+)님이 9월 운행일지를 제출했어요$/, (_, n) => `${T(n)} submitted the September logbook`],
   [/^(.+)님이 9월 운행일지 제출을 요청했어요$/, (_, n) => `${T(n)} asked you to submit the September logbook`],
