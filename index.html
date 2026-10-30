@@ -638,9 +638,9 @@ SCREENS.home = () => {
     <p class="text-[26px] font-black text-ink leading-[38px]">${esc(S.me.name)}님,<br/>오늘도 안전 운행하세요.</p>
 
     <section class="flex items-center justify-between">
-      <button onclick="go('bbHub')" class="flex items-center gap-[10px]">
-        ${I.car('#626B76')}
-        <span class="text-[14px] font-bold text-ink">${v ? `${v.model} · ${v.rego}` : '배정된 차량 없음'}</span>
+      <button onclick="go('bbHub')" class="flex items-center gap-[10px] min-w-0 flex-1 mr-3">
+        <span class="shrink-0">${I.car('#626B76')}</span>
+        <span class="text-[14px] font-bold text-ink whitespace-nowrap truncate">${v ? `${v.model} · ${v.rego}` : '배정된 차량 없음'}</span>
       </button>
       ${ConnChip()}
     </section>
@@ -951,7 +951,7 @@ SCREENS.reports = () => {
         <p class="text-[12px] font-bold text-white">2026년 10월 · 작성 중</p>
         <span class="text-[11px] text-[#D8DDE3]">11월 1일 자동 생성</span>
       </div>
-      <p class="text-[24px] font-bold text-white leading-[30px]">이번 달 운행일지가<br/>자동으로 쌓이고 있어요.</p>
+      <p class="text-[24px] font-bold text-white leading-[30px]">${L('이번 달 운행일지가<br/>자동으로 쌓이고 있어요.', 'Monthly driving logs<br/>are being saved<br/>automatically.')}</p>
       <div class="grid grid-cols-3 gap-2 pt-1">
         <div class="flex flex-col"><span class="text-[11px] text-[#9AA3AE]">운행</span><span class="text-[18px] font-black text-white">${cur.count}건</span></div>
         <div class="flex flex-col"><span class="text-[11px] text-[#9AA3AE]">총 거리</span><span class="text-[18px] font-black text-white">${Math.round(cur.total)}km</span></div>
@@ -1691,7 +1691,7 @@ function ConnChip() {
     : driving ? { t: '차량 연결됨', on: true, dot: '#E96E0A' }
     : near ? { t: '연결 대기', on: false, dot: '#22A06B' }
     : { t: '블랙박스 근처에 없음', on: false, dot: '#C3C9D1' };
-  return `<button onclick="${reg ? "go('bbHub')" : "go('device')"}" class="h-[30px] pl-[10px] pr-[6px] inline-flex items-center gap-[6px] rounded-[6px] border text-[12px] font-bold whitespace-nowrap ${st.on ? 'bg-peach text-brand border-[#F8D3B4]' : st.warn ? 'bg-warnbg text-warn border-[#F5C6C6]' : 'bg-chip text-sub border-line'}" aria-label="블랙박스">
+  return `<button onclick="${reg ? "go('bbHub')" : "go('device')"}" class="shrink-0 h-[30px] pl-[10px] pr-[6px] inline-flex items-center gap-[6px] rounded-[6px] border text-[12px] font-bold whitespace-nowrap ${st.on ? 'bg-peach text-brand border-[#F8D3B4]' : st.warn ? 'bg-warnbg text-warn border-[#F5C6C6]' : 'bg-chip text-sub border-line'}" aria-label="블랙박스">
     <span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${st.dot}"></span>${st.t}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>`;
 }
@@ -2494,7 +2494,7 @@ const I18N = {
   '모두 읽음': 'Mark all read', '모두 확인했어요': 'All caught up', '알림이 없어요.': 'No notifications.', '확인할 항목': 'Needs attention',
   '주차 중 충격 발생': 'Parking impact', '💥 주차 중 충격 발생': '💥 Parking impact', '탭하여 영상을 확인하세요': 'tap to view the video',
   // 홈 재구성 · 회사 관리 (2026.10.29)
-  '블랙박스 근처에 없음': 'Dashcam out of range', '충격이 감지된 운행이 있어요': 'An impact was detected on a trip', '영상을 확인해 보세요': 'check the video',
+  '블랙박스 근처에 없음': 'Out of range', '충격이 감지된 운행이 있어요': 'An impact was detected on a trip', '영상을 확인해 보세요': 'check the video',
   '9월 운행일지 제출': 'Sep logbooks', '제출 현황': 'Details', '모든 사용자가 제출했어요': 'Everyone has submitted',
   '회사 관리': 'Company admin', 'ABN 미확인': 'ABN not verified', '운행일지 제출 현황': 'Logbook submissions',
   '모든 사용자가': 'Everyone has', '제출했어요': 'submitted', '제출하지 않았어요': 'submitted yet',
