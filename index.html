@@ -1688,9 +1688,9 @@ function bbGo(id, p) {
 function ConnChip() {
   const reg = S.device.registered, driving = S.drive.state === 'driving', near = S.bb.near;
   const st = !reg ? { t: '미등록', on: false, warn: true, dot: '#D93F3F' }
-    : driving ? { t: '차량 연결됨', on: true, dot: '#E96E0A' }
+    : driving ? { t: L('연결됨', 'Connected'), on: true, dot: '#E96E0A' }
     : near ? { t: '연결 대기', on: false, dot: '#22A06B' }
-    : { t: '블랙박스 근처에 없음', on: false, dot: '#C3C9D1' };
+    : { t: L('근처에 없음', 'Out of range'), on: false, dot: '#C3C9D1' };
   return `<button onclick="${reg ? "go('bbHub')" : "go('device')"}" class="shrink-0 h-[30px] pl-[10px] pr-[6px] inline-flex items-center gap-[6px] rounded-[6px] border text-[12px] font-bold whitespace-nowrap ${st.on ? 'bg-peach text-brand border-[#F8D3B4]' : st.warn ? 'bg-warnbg text-warn border-[#F5C6C6]' : 'bg-chip text-sub border-line'}" aria-label="블랙박스">
     <span class="w-[7px] h-[7px] rounded-full shrink-0" style="background:${st.dot}"></span>${st.t}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
   </button>`;
